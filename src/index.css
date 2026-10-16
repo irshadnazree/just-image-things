@@ -398,6 +398,7 @@ input[type='range']::-moz-range-thumb {
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  position: relative;
   cursor: pointer;
   font-size: 13px;
 }
