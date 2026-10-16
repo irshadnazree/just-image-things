@@ -5,8 +5,8 @@
   --border: #e2e2dc;
   --border-strong: #cfcfc7;
   --text: #17181a;
-  --muted: #6b6e74;
-  --accent: #e8491d;
+  --muted: #4d5056;
+  --accent: #cf3d17;
   --accent-ink: #ffffff;
   --accent-soft: color-mix(in oklab, var(--accent) 12%, transparent);
   --good: #12804f;
@@ -28,7 +28,7 @@
     --border: #262930;
     --border-strong: #353942;
     --text: #e9eaec;
-    --muted: #8d929b;
+    --muted: #a3a8b0;
     --accent: #ff6a3d;
     --accent-ink: #1a0802;
     --good: #45d18f;
