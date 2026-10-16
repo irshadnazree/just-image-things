@@ -316,8 +316,8 @@ function RenameSection() {
       />
       <div className="chip-row">
         {NAME_TOKENS.map((t) => (
-          <button key={t.token} type="button" className="chip chip-sm mono" title={t.label} onClick={() => insert(t.token)}>
-            {t.token}
+          <button key={t.token} type="button" className="chip chip-sm" title={t.label} onClick={() => insert(t.token)}>
+            <code>{t.token}</code>
           </button>
         ))}
       </div>
@@ -327,10 +327,10 @@ function RenameSection() {
           <NumberInput label="Start number" value={rename.startAt} min={0} onChange={(v) => update((d) => void (d.rename.startAt = v))} />
         </div>
       )}
-      <p className="example mono">
-        <span className="muted">{example.original}</span>
+      <p className="example">
+        <code className="muted">{example.original}</code>
         <span aria-hidden> → </span>
-        <span>{example.result}</span>
+        <code>{example.result}</code>
       </p>
     </Section>
   )
@@ -396,7 +396,7 @@ function OutputSection() {
       />
       {o.destination === 'folder' && (
         <div className="folder-row">
-          <span className={folder ? 'mono' : 'muted'}>{folder ? `📁 ${folder.name}` : 'No folder chosen'}</span>
+          <span className={folder ? undefined : 'muted'}>{folder ? `📁 ${folder.name}` : 'No folder chosen'}</span>
           <button type="button" className="btn btn-ghost" onClick={chooseFolder}>
             {folder ? 'Change' : 'Choose…'}
           </button>

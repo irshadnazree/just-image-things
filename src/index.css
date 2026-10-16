@@ -54,7 +54,7 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.45 var(--sans);
+  font: 15px/1.5 var(--sans);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -65,8 +65,12 @@ select {
   color: inherit;
 }
 
-.mono {
+.mono,
+code {
   font-family: var(--mono);
+}
+code {
+  font-size: inherit;
 }
 .num {
   font-variant-numeric: tabular-nums;
@@ -75,7 +79,7 @@ select {
   color: var(--muted);
 }
 .small {
-  font-size: 12px;
+  font-size: 13px;
 }
 .good {
   color: var(--good);
@@ -113,8 +117,7 @@ select {
   align-items: center;
   gap: 14px;
   padding: 10px 18px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
+  background: var(--bg);
 }
 
 .wordmark {
@@ -127,7 +130,7 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
   padding: 2px 9px;
   border: 1px solid var(--border);
@@ -154,7 +157,6 @@ select {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid var(--border);
   background: var(--panel);
 }
 
@@ -175,10 +177,6 @@ select {
   }
   .main {
     min-height: 70vh;
-  }
-  .sidebar {
-    border-right: 0;
-    border-top: 1px solid var(--border);
   }
   .badge {
     display: none;
@@ -210,11 +208,7 @@ select {
 }
 
 .section {
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border);
-}
-.section:last-child {
-  border-bottom: 0;
+  padding: 18px 0;
 }
 .section-head {
   display: flex;
@@ -223,11 +217,9 @@ select {
 }
 .section-head h2 {
   margin: 0;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
+  color: var(--text);
 }
 .section-body {
   display: flex;
@@ -237,7 +229,7 @@ select {
 
 .note {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--muted);
 }
 
@@ -268,7 +260,7 @@ select {
 }
 .chip-sm {
   padding: 3px 8px;
-  font-size: 12px;
+  font-size: 13px;
 }
 .chip-row {
   display: flex;
@@ -310,7 +302,7 @@ input[type='color'] {
   font-size: 13px;
 }
 .field-hint {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 
@@ -452,7 +444,6 @@ input[type='range']::-moz-range-thumb {
   padding: 2px;
   border-radius: 7px;
   background: var(--panel-2);
-  border: 1px solid var(--border);
 }
 .segmented button {
   flex: 1;
@@ -468,7 +459,6 @@ input[type='range']::-moz-range-thumb {
   background: var(--panel);
   color: var(--text);
   font-weight: 600;
-  box-shadow: var(--shadow);
 }
 .segmented button:disabled {
   opacity: 0.4;
@@ -476,7 +466,7 @@ input[type='range']::-moz-range-thumb {
 }
 .segmented-sm button {
   padding: 2px 10px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .folder-row {
@@ -494,7 +484,7 @@ input[type='range']::-moz-range-thumb {
 
 .example {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   overflow-wrap: anywhere;
 }
 
@@ -543,6 +533,12 @@ fieldset:disabled {
   border-color: var(--accent);
   filter: brightness(1.06);
 }
+.btn-primary:disabled {
+  background: var(--panel-2);
+  border-color: var(--border);
+  color: var(--muted);
+  opacity: 1;
+}
 .btn-block {
   width: 100%;
 }
@@ -558,8 +554,7 @@ fieldset:disabled {
   flex-direction: column;
   gap: 10px;
   padding: 14px 16px 16px;
-  border-top: 1px solid var(--border);
-  background: var(--panel);
+  background: var(--panel-2);
 }
 
 .progress {
@@ -584,7 +579,7 @@ fieldset:disabled {
 
 .notice {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--muted);
 }
 
@@ -600,16 +595,19 @@ fieldset:disabled {
   max-width: 520px;
   text-align: center;
   padding: 48px 36px;
-  border: 1.5px dashed var(--border-strong);
+  border: 2px dashed var(--border-strong);
   border-radius: 16px;
+  animation: rise 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 .empty-mark {
   color: var(--accent);
   margin-bottom: 8px;
 }
 .empty h1 {
-  font-size: 22px;
+  font-size: 32px;
+  line-height: 1.15;
   letter-spacing: -0.02em;
+  text-wrap: balance;
   margin: 0 0 8px;
 }
 .empty p {
@@ -622,7 +620,8 @@ fieldset:disabled {
   margin-bottom: 22px;
 }
 .formats {
-  font-size: 12px;
+  font-size: 13px;
+  text-wrap: balance;
   color: var(--muted);
 }
 
@@ -926,6 +925,12 @@ fieldset:disabled {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 }
 @keyframes pulse {

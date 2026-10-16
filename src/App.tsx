@@ -11,7 +11,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <span className="wordmark mono">just image things</span>
+        <span className="wordmark">just image things</span>
         <span className="badge" title="Images are processed with WebAssembly in your browser">
           <span className="badge-dot" aria-hidden />
           Runs locally · nothing uploaded

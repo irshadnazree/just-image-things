@@ -122,16 +122,16 @@ export function EmptyState() {
           </svg>
         </div>
         <h1>Drop images or whole folders</h1>
-        <p className="muted">
+        <p>
           Convert, compress, resize and rename in bulk. Everything runs on this device, and nothing is uploaded.
         </p>
         <div className="empty-actions">
           <AddButtons />
         </div>
-        <p className="formats mono">
-          JPEG · PNG · WebP · AVIF · HEIC · JPEG XL · TIFF · GIF · BMP · ICO · QOI · SVG
+        <p className="formats">
+          {['JPEG', 'PNG', 'WebP', 'AVIF', 'HEIC', 'JPEG\u00a0XL', 'TIFF', 'GIF', 'BMP', 'ICO', 'QOI', 'SVG'].join('\u00a0· ')}
         </p>
-        <p className="muted small">You can also paste an image with ⌘V / Ctrl+V.</p>
+        <p className="muted small">You can also paste an image with {'⌘V\u00a0/\u00a0Ctrl+V'}.</p>
       </div>
     </div>
   )
