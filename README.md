@@ -51,3 +51,7 @@ Codecs: [jSquash](https://github.com/jamsinclair/jSquash) (Squoosh codecs), [lib
 - Animated GIF/WebP input keeps only the first frame.
 - Very large images (above roughly 100–150 megapixels) can exceed browser memory.
 - HEIC colour profiles (Display P3) aren't converted outside Safari, so colours can look slightly muted.
+
+## Deploy
+
+Hosted on Cloudflare Workers (static assets) at [image.ruxera.com](https://image.ruxera.com), configured in `wrangler.jsonc`. Workers Builds deploys every push to `main`; `bun run deploy` deploys by hand.
