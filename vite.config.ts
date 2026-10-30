@@ -1,8 +1,9 @@
+import { cloudflare } from '@cloudflare/vite-plugin'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), cloudflare()],
   worker: { format: 'es' },
   // The codecs locate their .wasm files via import.meta.url, which pre-bundling would break.
   optimizeDeps: {
