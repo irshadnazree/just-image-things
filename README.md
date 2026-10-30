@@ -36,14 +36,14 @@ A web rework of [`image-script.py`](https://github.com/irshadnazree/media-relate
 
 ## Development
 
-Use Node.js 22.23+, 24.22+, or 26.12+ and pnpm (pinned in `package.json`).
-The Cloudflare CLI and Vite plugin are pinned beta releases. Review the version-specific release-age exceptions in `pnpm-workspace.yaml` when upgrading them.
+Use Bun 1.4.2 (pinned in `package.json`) for installs and project commands. The Cloudflare CLI runs under Node.js and requires Node.js 22.23+, 24.22+, or 26.12+; do not force it to run with `bun --bun`.
+The Cloudflare CLI and Vite plugin are pinned beta releases.
 
 ```sh
-pnpm install
-pnpm run dev        # http://localhost:5173
-pnpm run test       # unit tests
-pnpm run build      # Cloudflare Build Output in .cloudflare/output/v0/
+bun install
+bun run dev        # http://localhost:5173
+bun run test       # unit tests
+bun run build      # Cloudflare Build Output in .cloudflare/output/v0/
 ```
 
 Codecs: [jSquash](https://github.com/jamsinclair/jSquash) (Squoosh codecs), [libheif-js](https://github.com/catdad-experiments/libheif-js), [UTIF](https://github.com/photopea/UTIF.js), [gifenc](https://github.com/mattdesl/gifenc), [client-zip](https://github.com/Touffy/client-zip). BMP, ICO, QOI and EXIF handling are in `src/lib`.
@@ -60,17 +60,17 @@ Codecs: [jSquash](https://github.com/jamsinclair/jSquash) (Squoosh codecs), [lib
 Hosted on Cloudflare Workers (static assets) at [image.ruxera.com](https://image.ruxera.com). `cloudflare.config.ts` defines the Worker, custom domain, and SPA fallback. The Cloudflare Vite plugin packages the app as static assets; deployment commands use the Cloudflare `cf` CLI.
 
 ```sh
-pnpm run deploy                              # build and deploy with cf
-pnpm exec cf deploy --prebuilt --mode production --dry-run # validate an existing build without uploading
+bun run deploy                              # build and deploy with cf
+bun x --no-install cf deploy --prebuilt --mode production --dry-run # validate an existing build without uploading
 ```
 
 For Workers Builds connected to `main`, use:
 
-- Build command: `pnpm run build`
-- Deploy command: `pnpm exec cf deploy --prebuilt --mode production`
-- Preview build command: `pnpm run typecheck`
-- Preview deploy command: `pnpm exec cf previews deploy --mode production`
+- Build command: `bun run build`
+- Deploy command: `bun x --no-install cf deploy --prebuilt --mode production`
+- Preview build command: `bun run typecheck`
+- Preview deploy command: `bun x --no-install cf previews deploy --mode production`
 
 The preview deploy command builds with preview intent and uploads to an isolated Worker Preview. Production Build Output cannot be reused with `cf previews deploy --prebuilt`.
 
-Production and preview build variables are `NODE_VERSION=26.12.0` and `PNPM_VERSION=12.14.0`. These remote settings are managed through `cf builds workers update` or the Cloudflare dashboard; repository changes do not update them automatically.
+Production and preview build variables are `NODE_VERSION=26.12.0` and `BUN_VERSION=1.4.2`. These remote settings are managed through `cf builds workers update` or the Cloudflare dashboard; repository changes do not update them automatically.
