@@ -25,6 +25,8 @@ export interface Item {
   error?: string
 }
 
+export const runKey = (items: Item[]) => items.map((i) => i.id).join(',')
+
 export interface RunStats {
   total: number
   done: number
@@ -35,6 +37,9 @@ export interface RunStats {
   finishedAt?: number
   workers: number
   cancelled?: boolean
+  /** The settings and items the run used, so the UI can tell when a re-run would differ. */
+  settings: Settings
+  itemIds: string
 }
 
 interface State {
@@ -47,6 +52,8 @@ interface State {
   stats: RunStats | null
   /** Shown once after a run ends, e.g. "Saved to photos_processed.zip". */
   notice: string | null
+  /** Phones show the settings as a sheet over the page. */
+  settingsOpen: boolean
 
   addFiles(files: IntakeFile[]): void
   removeItem(id: number): void
@@ -58,6 +65,7 @@ interface State {
   deletePreset(id: string): void
   chooseFolder(): Promise<void>
   start(): Promise<void>
+  setSettingsOpen(open: boolean): void
   cancel(): void
 }
 
@@ -105,6 +113,11 @@ export const useStore = create<State>()(
       running: false,
       stats: null,
       notice: null,
+      settingsOpen: false,
+
+      setSettingsOpen(open) {
+        set({ settingsOpen: open })
+      },
 
       addFiles(files) {
         const { items } = get()
@@ -205,6 +218,8 @@ export const useStore = create<State>()(
           bytesOut: 0,
           startedAt: performance.now(),
           workers: pool.limit,
+          settings: state.settings,
+          itemIds: runKey(items),
         }
         pool.onLimitChange = (workers) => set((s) => ({ stats: s.stats && { ...s.stats, workers } }))
         set({
@@ -329,3 +344,14 @@ export const useStore = create<State>()(
 )
 
 let cancelHook: (() => void) | null = null
+
+/** The last run's stats while the list and settings still match it, so its results are what's on screen. */
+export function useFreshStats(): RunStats | null {
+  const stats = useStore((s) => s.stats)
+  const settings = useStore((s) => s.settings)
+  const items = useStore((s) => s.items)
+  const running = useStore((s) => s.running)
+  if (running || !stats?.finishedAt || stats.cancelled) return null
+  if (stats.settings !== settings || stats.itemIds !== runKey(items)) return null
+  return stats
+}

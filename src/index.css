@@ -104,10 +104,11 @@ code {
 .app {
   display: grid;
   grid-template-columns: 340px minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   grid-template-areas:
     'top top'
-    'side main';
+    'side main'
+    'run main';
   height: 100%;
 }
 
@@ -168,19 +169,72 @@ code {
   min-width: 0;
 }
 
-@media (max-width: 820px) {
-  .app {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
-    grid-template-areas: 'top' 'main' 'side';
-    height: auto;
+/* Settings scroll underneath the run bar; a soft edge shows there is more above it. */
+@media (min-width: 721px) {
+  .run-bar {
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 -12px 18px -14px rgb(0 0 0 / 0.55);
   }
+}
+
+@media (max-width: 720px) {
+  /* A flex column, not a grid, so the run bar can stick to the bottom of the whole page. */
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 100%;
+  }
+  /* Fill the screen so the run bar sits at the bottom even when the list is short. */
   .main {
+    order: 1;
+    flex: 1 0 auto;
     min-height: 70vh;
+  }
+  .sidebar {
+    display: none;
+  }
+  .sidebar.is-open {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+  }
+  .sidebar.is-open .settings {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+  .sidebar.is-open .sheet-head {
+    position: sticky;
+    top: -14px;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: -14px -16px 4px;
+    padding: 12px 16px;
+    background: var(--panel);
+  }
+  .sidebar.is-open .sheet-head h2 {
+    margin: 0;
+    font-size: 17px;
+  }
+  .run-bar {
+    order: 3;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+  .run-bar.is-empty {
+    display: none;
   }
   .badge {
     display: none;
   }
+}
+html.sheet-open {
+  overflow: hidden;
 }
 
 /* ---------- settings ---------- */
@@ -257,6 +311,9 @@ code {
   background: var(--accent-soft);
   color: var(--text);
   font-weight: 600;
+}
+.chip-wide {
+  grid-column: span 2;
 }
 .chip-sm {
   padding: 3px 8px;
@@ -550,6 +607,7 @@ fieldset:disabled {
 /* ---------- run bar ---------- */
 
 .run-bar {
+  grid-area: run;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -568,13 +626,86 @@ fieldset:disabled {
   background: var(--accent);
   transition: width 0.2s;
 }
+/* Until the first image finishes there is no rate to show, so the bar moves instead of sitting empty. */
+.progress.is-indeterminate .progress-fill {
+  width: 35% !important;
+  animation: indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(290%);
+  }
+}
 
-.run-stats,
-.run-summary {
+.run-stats {
   display: flex;
   flex-direction: column;
   gap: 2px;
   font-size: 13px;
+}
+/* Phones only: settings live in a sheet, so the bar says what will happen and opens it. */
+.run-settings {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.run-settings-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.run-destination .destination {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+@media (max-width: 720px) {
+  .run-settings {
+    display: flex;
+  }
+  .run-destination {
+    display: none;
+  }
+}
+
+.destination-label {
+  font-size: 13px;
+  font-weight: 650;
+}
+.destination .note {
+  font-size: 13px;
+}
+/* On wide screens the run bar carries the destination, so the panel doesn't repeat it. */
+.dest-in-panel {
+  display: none;
+}
+@media (max-width: 720px) {
+  .dest-in-panel {
+    display: block;
+  }
+  .dest-in-panel .destination {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .dest-in-panel .destination-label {
+    display: none;
+  }
+}
+
+.locked-note {
+  margin: 0 0 10px;
+}
+
+.sheet-head {
+  display: none;
 }
 
 .notice {
@@ -587,37 +718,62 @@ fieldset:disabled {
 
 .empty {
   flex: 1;
-  display: grid;
-  place-items: center;
-  padding: 24px;
+  display: flex;
+  padding: 0 18px 18px;
 }
+/* The whole pane is the drop target, so it is drawn as one surface rather than a box in a void. */
 .empty-inner {
-  max-width: 520px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  padding: 48px 36px;
-  border: 2px dashed var(--border-strong);
-  border-radius: 16px;
+  padding: 48px 32px;
+  border-radius: 14px;
+  background: var(--panel);
+}
+.empty-inner > * {
+  max-width: 560px;
   animation: rise 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 .empty-mark {
-  color: var(--accent);
-  margin-bottom: 8px;
+  color: var(--muted);
+  margin-bottom: 14px;
 }
 .empty h1 {
-  font-size: 32px;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
+  font-size: 44px;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
   text-wrap: balance;
-  margin: 0 0 8px;
+  margin: 0 0 14px;
 }
 .empty p {
-  margin: 0 0 18px;
+  margin: 0 0 24px;
+}
+.empty .empty-lede {
+  font-size: 17px;
+  line-height: 1.5;
+  text-wrap: pretty;
 }
 .empty-actions {
   display: flex;
   gap: 8px;
   justify-content: center;
-  margin-bottom: 22px;
+  margin-bottom: 28px;
+}
+.empty-actions .btn {
+  padding: 10px 18px;
+  font-size: 15px;
+}
+.empty-settings {
+  display: none;
+}
+@media (max-width: 720px) {
+  .empty-settings {
+    display: inline-flex;
+    margin-top: 8px;
+  }
 }
 .formats {
   font-size: 13px;
@@ -649,12 +805,12 @@ fieldset:disabled {
 .preview {
   display: flex;
   flex-direction: column;
-  height: 58%;
+  flex: 1 1 0;
   min-height: 240px;
   border-bottom: 1px solid var(--border);
 }
 .preview.is-collapsed {
-  height: auto;
+  flex: none;
   min-height: 0;
 }
 
@@ -791,26 +947,99 @@ fieldset:disabled {
 .preview-stats .arrow {
   color: var(--muted);
 }
+/* Dim the stale output without fading it, which would let the transparency checkerboard show through. */
+.preview-viewport.is-updating .preview-canvas-after {
+  filter: saturate(0.35) brightness(0.7);
+  transition: filter 0.2s;
+}
+.preview-stats.is-updating {
+  color: var(--muted);
+}
+.preview-stats.is-updating .good,
+.preview-stats.is-updating .bad {
+  color: inherit;
+}
 
 /* ---------- file list ---------- */
 
+.result-band {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: color-mix(in oklab, var(--good) 9%, var(--panel));
+  animation: rise 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.result-big {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.result-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 14px;
+}
+.result-text > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stale-band {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  background: var(--panel-2);
+}
+.stale-band svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--accent);
+}
+/* Results from an earlier run stay readable but stop looking current: grey, not green. */
+.row.is-outdated .status,
+.row.is-outdated .row-out,
+.row.is-outdated .row-out .good,
+.row.is-outdated .row-out .bad {
+  color: var(--muted);
+}
+
+.list-count {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
 .file-list {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
+  max-height: 55%;
   display: flex;
   flex-direction: column;
 }
+.preview.is-collapsed + .file-list {
+  flex: 1 1 auto;
+  max-height: none;
+}
 
 .list-scroll {
-  flex: 1;
-  min-height: 0;
+  flex: 1 1 auto;
+  min-height: 120px;
   overflow-y: auto;
   outline-offset: -2px;
 }
 
 .row {
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) 56px 72px minmax(150px, 210px) 24px;
+  grid-template-columns: 14px minmax(0, 1fr) 56px 72px minmax(150px, 210px) 28px;
   align-items: center;
   gap: 12px;
   height: 40px;
@@ -823,28 +1052,32 @@ fieldset:disabled {
   background: var(--panel-2);
 }
 .row.is-selected {
-  background: var(--accent-soft);
+  background: color-mix(in oklab, var(--text) 8%, var(--bg));
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
-.status-dot {
-  width: 8px;
-  height: 8px;
+.status {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  color: var(--border-strong);
+}
+.status-queued .status {
+  color: var(--muted);
+}
+.status-done .status {
+  color: var(--good);
+}
+.status-error .status,
+.status-skipped .status {
+  color: var(--bad);
+}
+.status-ring {
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  background: var(--border-strong);
-}
-.status-queued .status-dot {
-  background: var(--muted);
-}
-.status-processing .status-dot {
-  background: var(--accent);
-  animation: pulse 1s ease-in-out infinite;
-}
-.status-done .status-dot {
-  background: var(--good);
-}
-.status-error .status-dot,
-.status-skipped .status-dot {
-  background: var(--bad);
+  border: 2px solid currentColor;
 }
 
 .row-name {
@@ -882,26 +1115,39 @@ fieldset:disabled {
   color: var(--muted);
 }
 .row-remove {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: 0;
   background: transparent;
   color: var(--muted);
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
-  border-radius: 4px;
-  opacity: 0;
+  border-radius: 6px;
+  opacity: 0.6;
+}
+.row-remove:hover {
+  background: var(--panel-2);
 }
 .row:hover .row-remove,
 .row-remove:focus-visible {
   opacity: 1;
 }
+@media (hover: none) {
+  .row-remove {
+    opacity: 1;
+  }
+}
 .row-remove:disabled {
   display: none;
 }
 
-@media (max-width: 820px) {
+@media (max-width: 720px) {
   .row {
-    grid-template-columns: 10px minmax(0, 1fr) minmax(110px, auto) 24px;
+    grid-template-columns: 14px minmax(0, 1fr) auto 32px;
   }
   .row-fmt,
   .row-size {
@@ -909,6 +1155,49 @@ fieldset:disabled {
   }
   .row-remove {
     opacity: 1;
+  }
+  /* The page scrolls on phones, so the preview gets a fixed share of the screen and the list is only as tall as its rows. */
+  .main:has(.file-list) {
+    min-height: 0;
+  }
+  .preview {
+    flex: none;
+    min-height: 0;
+  }
+  .preview-viewport {
+    flex: none;
+    height: 36vh;
+  }
+  .preview-stats .arrow {
+    display: none;
+  }
+  .file-list,
+  .list-scroll {
+    flex: none;
+  }
+  .list-scroll {
+    max-height: 60vh;
+    min-height: 0;
+  }
+  .file-list {
+    max-height: none;
+  }
+}
+/* Tablets and small laptops keep two columns with a narrower panel and fewer list columns. */
+@media (min-width: 721px) and (max-width: 1100px) {
+  .app {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+  .row {
+    grid-template-columns: 14px minmax(0, 1fr) 64px minmax(110px, auto) 28px;
+  }
+  .row-fmt {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
+  .list-count .muted {
+    display: none;
   }
 }
 
@@ -933,11 +1222,6 @@ fieldset:disabled {
     transform: translateY(8px);
   }
 }
-@keyframes pulse {
-  50% {
-    opacity: 0.35;
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -945,5 +1229,31 @@ fieldset:disabled {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- touch ---------- */
+
+.for-touch {
+  display: none;
+}
+@media (pointer: coarse) {
+  .for-pointer {
+    display: none;
+  }
+  .for-touch {
+    display: inline;
+  }
+  .btn,
+  .segmented button,
+  .chip {
+    min-height: 40px;
+  }
+  .chip-sm {
+    min-height: 36px;
+  }
+  .row-remove {
+    width: 32px;
+    height: 32px;
   }
 }

@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useStore } from './app/store'
 import { FileList } from './components/FileList'
 import { DropOverlay, EmptyState } from './components/Intake'
@@ -7,6 +8,20 @@ import { SettingsPanel } from './components/SettingsPanel'
 
 export default function App() {
   const hasItems = useStore((s) => s.items.length > 0)
+  const settingsOpen = useStore((s) => s.settingsOpen)
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen)
+
+  // The phone settings sheet covers the page: lock the page behind it and let Escape close it.
+  useEffect(() => {
+    if (!settingsOpen) return
+    document.documentElement.classList.add('sheet-open')
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSettingsOpen(false)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.documentElement.classList.remove('sheet-open')
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [settingsOpen, setSettingsOpen])
 
   return (
     <div className="app">
@@ -21,9 +36,8 @@ export default function App() {
           Source
         </a>
       </header>
-      <aside className="sidebar">
+      <aside className={`sidebar ${settingsOpen ? 'is-open' : ''}`} aria-label="Settings">
         <SettingsPanel />
-        <RunBar />
       </aside>
       <main className="main">
         {hasItems ? (
@@ -35,6 +49,7 @@ export default function App() {
           <EmptyState />
         )}
       </main>
+      <RunBar />
       <DropOverlay />
     </div>
   )

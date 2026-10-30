@@ -2,12 +2,14 @@ import { useMemo, useRef, useState } from 'react'
 import { useStore } from '../app/store'
 import { autoWorkerCount } from '../app/pool'
 import { supportsFolderOutput } from '../app/sinks'
-import { FORMAT_BY_ID, OUTPUT_FORMATS, type EncodableFormat, type LossyFormat } from '../lib/formats'
+import { FORMAT_BY_ID, type EncodableFormat, type LossyFormat } from '../lib/formats'
 import { NAME_TOKENS, renderName } from '../lib/naming'
 import { BUILTIN_PRESETS, EFFORT_RANGE, ICO_SIZES, type ResizeMode, type Settings } from '../lib/settings'
 import { Field, NumberInput, Section, Segmented, Slider, Toggle } from './controls'
 
 const LOSSY: LossyFormat[] = ['jpeg', 'webp', 'avif', 'jxl']
+/** Most-used first; "same as input" sits last and spans the leftover cells. */
+const FORMAT_ORDER: (EncodableFormat | 'original')[] = ['webp', 'avif', 'jpeg', 'png', 'jxl', 'gif', 'tiff', 'bmp', 'ico', 'qoi', 'original']
 const isLossy = (f: Settings['format']): f is LossyFormat => (LOSSY as string[]).includes(f)
 const hasEffort = (f: Settings['format']): f is keyof Settings['effort'] => f in EFFORT_RANGE
 
@@ -58,7 +60,7 @@ function PresetBar() {
             setValue('')
           }}
         >
-          Delete
+          Delete preset
         </button>
       ) : (
         <button
@@ -69,7 +71,7 @@ function PresetBar() {
             if (name?.trim()) savePreset(name.trim())
           }}
         >
-          Save
+          Save preset
         </button>
       )}
     </div>
@@ -86,16 +88,16 @@ function FormatSection() {
   return (
     <Section title="Format">
       <div className="format-grid" role="radiogroup" aria-label="Output format">
-        {(['original', ...OUTPUT_FORMATS.map((o) => o.id)] as (EncodableFormat | 'original')[]).map((id) => (
+        {FORMAT_ORDER.map((id) => (
           <button
             key={id}
             type="button"
             role="radio"
             aria-checked={f === id}
-            className={`chip ${f === id ? 'is-active' : ''}`}
+            className={`chip ${f === id ? 'is-active' : ''} ${id === 'original' ? 'chip-wide' : ''}`}
             onClick={() => update((d) => void (d.format = id))}
           >
-            {id === 'original' ? 'Keep' : FORMAT_BY_ID[id].label}
+            {id === 'original' ? 'Same as input' : FORMAT_BY_ID[id].label}
           </button>
         ))}
       </div>
@@ -366,21 +368,20 @@ function MetadataSection() {
   )
 }
 
-function OutputSection() {
+/** Where files go. Wide screens show it beside the run button; phones show it in the settings sheet. */
+export function DestinationPicker() {
   const o = useStore((st) => st.settings.output)
-  const workers = useStore((st) => st.settings.workers)
+  const count = useStore((st) => st.items.length)
   const folder = useStore((st) => st.outputFolder)
   const chooseFolder = useStore((st) => st.chooseFolder)
   const update = useStore((st) => st.update)
-  const set = <K extends keyof Settings['output']>(key: K, v: Settings['output'][K]) =>
-    update((d) => void (d.output[key] = v))
-  const auto = autoWorkerCount()
-  const cores = navigator.hardwareConcurrency || 4
+  const set = (v: Settings['output']['destination']) => update((d) => void (d.output.destination = v))
 
   return (
-    <Section title="Output">
+    <div className="destination">
+      <span className="destination-label">Save to</span>
       <Segmented
-        label="Destination"
+        label="Save to"
         value={o.destination}
         options={[
           {
@@ -392,17 +393,40 @@ function OutputSection() {
           { value: 'zip', label: 'ZIP' },
           { value: 'files', label: 'Downloads' },
         ]}
-        onChange={(v) => set('destination', v)}
+        onChange={set}
       />
-      {o.destination === 'folder' && (
+      {o.destination === 'folder' ? (
         <div className="folder-row">
-          <span className={folder ? undefined : 'muted'}>{folder ? `📁 ${folder.name}` : 'No folder chosen'}</span>
+          <span className={folder ? undefined : 'muted'}>
+            {folder ? `Into “${folder.name}”` : 'Asks when you convert'}
+          </span>
           <button type="button" className="btn btn-ghost" onClick={chooseFolder}>
-            {folder ? 'Change' : 'Choose…'}
+            {folder ? 'Change' : 'Choose now'}
           </button>
         </div>
+      ) : (
+        <p className="note">
+          {o.destination === 'zip' && count !== 1 ? 'Downloads as one ZIP file' : 'Each image downloads on its own'}
+        </p>
       )}
-      {o.destination === 'files' && <p className="note">Each image downloads on its own. Best for a few files.</p>}
+    </div>
+  )
+}
+
+function OutputSection() {
+  const o = useStore((st) => st.settings.output)
+  const workers = useStore((st) => st.settings.workers)
+  const update = useStore((st) => st.update)
+  const set = <K extends keyof Settings['output']>(key: K, v: Settings['output'][K]) =>
+    update((d) => void (d.output[key] = v))
+  const auto = autoWorkerCount()
+  const cores = navigator.hardwareConcurrency || 4
+
+  return (
+    <Section title="Saving">
+      <div className="dest-in-panel">
+        <DestinationPicker />
+      </div>
       {o.destination !== 'files' && (
         <Toggle label="Keep subfolders" checked={o.keepStructure} onChange={(v) => set('keepStructure', v)} />
       )}
@@ -437,8 +461,16 @@ function OutputSection() {
 
 export function SettingsPanel() {
   const running = useStore((s) => s.running)
+  const setOpen = useStore((s) => s.setSettingsOpen)
   return (
-    <div className="settings">
+    <div className="settings" id="settings">
+      <div className="sheet-head">
+        <h2>Settings</h2>
+        <button type="button" className="btn btn-primary" onClick={() => setOpen(false)}>
+          Done
+        </button>
+      </div>
+      {running && <p className="note locked-note">Settings are locked while converting.</p>}
       <PresetBar />
       <fieldset disabled={running} className="settings-fields">
         <FormatSection />

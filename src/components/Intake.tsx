@@ -111,6 +111,7 @@ export function DropOverlay() {
 }
 
 export function EmptyState() {
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   return (
     <div className="empty">
       <div className="empty-inner">
@@ -121,9 +122,12 @@ export function EmptyState() {
             <path d="M6 32l10-9 8 7 6-5 12 10" />
           </svg>
         </div>
-        <h1>Drop images or whole folders</h1>
-        <p>
-          Convert, compress, resize and rename in bulk. Everything runs on this device, and nothing is uploaded.
+        <h1>
+          <span className="for-pointer">Drop images or whole folders</span>
+          <span className="for-touch">Add images or whole folders</span>
+        </h1>
+        <p className="empty-lede">
+          Convert, compress, resize and rename in bulk. Everything runs on this device; nothing is uploaded.
         </p>
         <div className="empty-actions">
           <AddButtons />
@@ -131,7 +135,10 @@ export function EmptyState() {
         <p className="formats">
           {['JPEG', 'PNG', 'WebP', 'AVIF', 'HEIC', 'JPEG\u00a0XL', 'TIFF', 'GIF', 'BMP', 'ICO', 'QOI', 'SVG'].join('\u00a0· ')}
         </p>
-        <p className="muted small">You can also paste an image with {'⌘V\u00a0/\u00a0Ctrl+V'}.</p>
+        <p className="muted small for-pointer">You can also paste an image with {'⌘V\u00a0/\u00a0Ctrl+V'}.</p>
+        <button type="button" className="btn btn-ghost empty-settings" onClick={() => setSettingsOpen(true)}>
+          Choose format and settings first
+        </button>
       </div>
     </div>
   )

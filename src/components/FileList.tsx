@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { useStore, type Item } from '../app/store'
+import { useFreshStats, useStore, type Item } from '../app/store'
 import { FORMAT_BY_ID, formatFromName, INPUT_LABELS } from '../lib/formats'
-import { formatBytes, formatDelta } from '../lib/format-bytes'
+import { formatBytes, formatDelta, formatDuration } from '../lib/format-bytes'
 import { AddButtons } from './Intake'
 
 const ROW_HEIGHT = 40
@@ -16,12 +16,38 @@ const STATUS_LABEL: Record<Item['status'], string> = {
   error: 'Failed',
 }
 
-function Row({ item, selected, onSelect, onRemove, running }: {
+/** Shape as well as colour, so status reads without telling green from red. */
+function StatusIcon({ status }: { status: Item['status'] }) {
+  if (status === 'processing') return <span className="spinner" />
+  if (status === 'done')
+    return (
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 8.5l3.2 3L13 4.5" />
+      </svg>
+    )
+  if (status === 'error')
+    return (
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+        <path d="M4 4l8 8M12 4l-8 8" />
+      </svg>
+    )
+  if (status === 'skipped')
+    return (
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+        <path d="M4 8h8" />
+      </svg>
+    )
+  return <span className="status-ring" />
+}
+
+function Row({ item, selected, onSelect, onRemove, running, showFormat, stale }: {
   item: Item
   selected: boolean
   onSelect: () => void
   onRemove: () => void
   running: boolean
+  showFormat: boolean
+  stale: boolean
 }) {
   const slash = item.relPath.lastIndexOf('/')
   const dir = slash >= 0 ? item.relPath.slice(0, slash + 1) : ''
@@ -29,16 +55,19 @@ function Row({ item, selected, onSelect, onRemove, running }: {
   const inFmt = formatFromName(item.file.name)
   const done = item.status === 'done' && item.outSize !== undefined
   const smaller = done && item.outSize! < item.file.size
+  const outdated = stale && item.status !== 'idle'
 
   return (
     <div
       role="row"
       aria-selected={selected}
-      className={`row status-${item.status} ${selected ? 'is-selected' : ''}`}
+      className={`row status-${item.status} ${selected ? 'is-selected' : ''} ${outdated ? 'is-outdated' : ''}`}
       onClick={onSelect}
       title={item.error ?? item.outPath ?? item.relPath}
     >
-      <span className="status-dot" aria-label={STATUS_LABEL[item.status]} />
+      <span className="status" role="img" aria-label={`${STATUS_LABEL[item.status]}${outdated ? ', from the last run' : ''}`}>
+        <StatusIcon status={item.status} />
+      </span>
       <span className="row-name">
         {dir && <span className="muted">{dir}</span>}
         {name}
@@ -49,16 +78,22 @@ function Row({ item, selected, onSelect, onRemove, running }: {
         {item.status === 'error' ? (
           <span className="error-text">{item.error}</span>
         ) : item.status === 'skipped' ? (
-          <span className="muted">exists</span>
+          <span className="muted">Skipped, already exists</span>
         ) : done ? (
           <>
-            <span className="tag">{FORMAT_BY_ID[item.outFormat!].label}</span>
+            {showFormat && <span className="tag">{FORMAT_BY_ID[item.outFormat!].label}</span>}
             {formatBytes(item.outSize!)}
-            <span className={smaller ? 'good' : 'bad'}>{item.kept ? 'kept' : formatDelta(item.file.size, item.outSize!)}</span>
+            <span className={`delta ${smaller ? 'good' : 'bad'}`}>
+              {item.kept ? 'kept' : formatDelta(item.file.size, item.outSize!)}
+            </span>
           </>
         ) : item.status === 'processing' ? (
-          <span className="spinner" aria-label="Processing" />
-        ) : null}
+          <span className="muted">Converting…</span>
+        ) : item.status === 'queued' ? (
+          <span className="muted">Queued</span>
+        ) : (
+          <span className="muted">Ready</span>
+        )}
       </span>
       <button
         type="button"
@@ -76,6 +111,54 @@ function Row({ item, selected, onSelect, onRemove, running }: {
   )
 }
 
+function ResultBand() {
+  const stats = useFreshStats()
+  const last = useStore((s) => s.stats)
+  const running = useStore((s) => s.running)
+  const notice = useStore((s) => s.notice)
+  const destination = useStore((s) => s.settings.output.destination)
+  if (!stats) {
+    if (running || !last?.finishedAt || last.cancelled) return null
+    return (
+      <div className="stale-band" role="status">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+          <circle cx="8" cy="8" r="6.5" />
+          <path d="M8 7.2v4M8 4.8v.01" />
+        </svg>
+        <span>
+          <strong>Settings changed.</strong> The sizes below are from the last run
+          {last.settings.format === 'original' ? '' : ` (${FORMAT_BY_ID[last.settings.format].label})`}. Convert again to
+          apply the new settings.
+        </span>
+      </div>
+    )
+  }
+
+  const smaller = stats.bytesOut < stats.bytesIn
+  const where = notice ?? (destination === 'files' || stats.total === 1 ? 'Sent to your downloads' : null)
+
+  return (
+    <div className="result-band num" role="status">
+      {stats.bytesIn > 0 && (
+        <span className={`result-big ${smaller ? 'good' : 'bad'}`}>{formatDelta(stats.bytesIn, stats.bytesOut)}</span>
+      )}
+      <span className="result-text">
+        <span>
+          <strong>
+            {stats.done.toLocaleString()} {stats.done === 1 ? 'image' : 'images'}
+          </strong>{' '}
+          {formatBytes(stats.bytesIn)} → {formatBytes(stats.bytesOut)}
+          {stats.failed > 0 && <span className="error-text"> · {stats.failed} failed</span>}
+        </span>
+        <span className="muted">
+          {formatDuration(stats.finishedAt! - stats.startedAt)}
+          {where && ` · ${where}`}
+        </span>
+      </span>
+    </div>
+  )
+}
+
 export function FileList() {
   const items = useStore((s) => s.items)
   const selectedId = useStore((s) => s.selectedId)
@@ -83,6 +166,10 @@ export function FileList() {
   const select = useStore((s) => s.select)
   const removeItem = useStore((s) => s.removeItem)
   const clear = useStore((s) => s.clear)
+  const showFormat = useStore((s) => (s.stats?.settings ?? s.settings).format === 'original')
+  const fresh = useFreshStats()
+  const lastRun = useStore((s) => s.stats)
+  const stale = !running && !fresh && !!lastRun?.finishedAt && !lastRun.cancelled
   const scroller = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [height, setHeight] = useState(400)
@@ -113,8 +200,9 @@ export function FileList() {
 
   return (
     <div className="file-list">
+      <ResultBand />
       <div className="list-toolbar">
-        <span className="num">
+        <span className="num list-count">
           <strong>{items.length.toLocaleString()}</strong> {items.length === 1 ? 'image' : 'images'}
           <span className="muted"> · {formatBytes(totalSize)}</span>
         </span>
@@ -151,6 +239,8 @@ export function FileList() {
                 selected={item.id === selectedId}
                 onSelect={() => select(item.id)}
                 onRemove={() => removeItem(item.id)}
+                showFormat={showFormat}
+                stale={stale}
               />
             ))}
           </div>

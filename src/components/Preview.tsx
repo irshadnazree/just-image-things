@@ -41,6 +41,12 @@ export function Preview() {
     return () => ro.disconnect()
   }, [collapsed])
 
+  // Only settings that change the pixels or bytes re-render the preview; where files go and how they're named don't.
+  const { output: _output, workers: _workers, rename: _rename, ...visual } = settings
+  const visualKey = JSON.stringify(visual)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the visual settings on purpose
+  const previewSettings = useMemo(() => settings, [visualKey])
+
   const file = item?.file
   const itemId = item?.id
   useEffect(() => {
@@ -49,8 +55,8 @@ export function Preview() {
     setLoading(true)
     const timer = setTimeout(async () => {
       try {
-        const raster = /\.svg$/i.test(file.name) ? await rasterizeSvg(file, settings) : undefined
-        const result = await runner.request({ type: 'preview', id: itemId, file, name: file.name, settings, raster })
+        const raster = /\.svg$/i.test(file.name) ? await rasterizeSvg(file, previewSettings) : undefined
+        const result = await runner.request({ type: 'preview', id: itemId, file, name: file.name, settings: previewSettings, raster })
         if (!result || stale) {
           result?.before.close()
           result?.after.close()
@@ -74,7 +80,7 @@ export function Preview() {
       stale = true
       clearTimeout(timer)
     }
-  }, [file, itemId, settings, runner, collapsed])
+  }, [file, itemId, previewSettings, runner, collapsed])
 
   const setFromPointer = (clientX: number) => {
     const rect = stageRef.current?.getBoundingClientRect()
@@ -94,6 +100,10 @@ export function Preview() {
     }
   }
   const outLabel = meta ? FORMAT_BY_ID[meta.format].label : ''
+  // While a new preview renders, the old one stays up but says it is out of date.
+  const updating = ready && loading
+  const target = settings.format === 'original' ? null : FORMAT_BY_ID[settings.format].label
+  const updatingLabel = target && target !== outLabel ? `Updating to ${target}…` : 'Updating…'
 
   return (
     <div className={`preview ${collapsed ? 'is-collapsed' : ''}`}>
@@ -121,7 +131,7 @@ export function Preview() {
 
       {!collapsed && (
         <>
-          <div ref={viewportRef} className={`preview-viewport zoom-${zoom}`}>
+          <div ref={viewportRef} className={`preview-viewport zoom-${zoom} ${updating ? 'is-updating' : ''}`}>
             <div
               ref={stageRef}
               className={`preview-stage ${ready ? 'checker' : ''}`}
@@ -134,7 +144,7 @@ export function Preview() {
                 if (e.currentTarget.hasPointerCapture(e.pointerId)) setFromPointer(e.clientX)
               }}
             >
-              <canvas ref={afterRef} className="preview-canvas" hidden={!ready} />
+              <canvas ref={afterRef} className="preview-canvas preview-canvas-after" hidden={!ready} />
               <canvas
                 ref={beforeRef}
                 className="preview-canvas"
@@ -162,14 +172,14 @@ export function Preview() {
               {ready && (
                 <>
                   <span className="corner corner-left">Original</span>
-                  <span className="corner corner-right">{outLabel}</span>
+                  <span className="corner corner-right">{updating ? updatingLabel : outLabel}</span>
                 </>
               )}
               {error && <div className="preview-message error-text">Can't preview: {error}</div>}
               {!item && <div className="preview-message muted">Select an image to preview</div>}
             </div>
           </div>
-          <div className="preview-stats num">
+          <div className={`preview-stats num ${updating ? 'is-updating' : ''}`}>
             {ready && item ? (
               <>
                 <span>
@@ -177,12 +187,21 @@ export function Preview() {
                   {INPUT_LABELS[meta.inputFormat]} · {meta.sourceWidth}×{meta.sourceHeight} · {formatBytes(item.file.size)}
                 </span>
                 <span className="arrow" aria-hidden>→</span>
-                <span>
-                  <span className="muted">Output </span>
-                  {outLabel} · {meta.width}×{meta.height} · <strong>{formatBytes(meta.size)}</strong>{' '}
-                  <span className={meta.size < item.file.size ? 'good' : 'bad'}>{formatDelta(item.file.size, meta.size)}</span>
-                </span>
-                <span className="muted">{formatDuration(meta.ms)}</span>
+                {updating ? (
+                  <span>
+                    <span className="muted">Output </span>
+                    {target ?? 'new settings'} · rendering…
+                  </span>
+                ) : (
+                  <>
+                    <span>
+                      <span className="muted">Output </span>
+                      {outLabel} · {meta.width}×{meta.height} · <strong>{formatBytes(meta.size)}</strong>{' '}
+                      <span className={meta.size < item.file.size ? 'good' : 'bad'}>{formatDelta(item.file.size, meta.size)}</span>
+                    </span>
+                    <span className="muted">{formatDuration(meta.ms)}</span>
+                  </>
+                )}
               </>
             ) : (
               <span className="muted">{item ? 'Rendering…' : ''}</span>
