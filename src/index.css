@@ -5,8 +5,18 @@
  * New CSS should use the --jt-* tokens directly.
  */
 :root {
-  --jt-accent: light-dark(#cf3d17, #ff6a3d);
-  --jt-accent-ink: light-dark(#fff, #1a0802);
+  /*
+   * Shared just ___ things accent. White on #00AB98 is 2.9:1, so the ink is dark (5.9:1).
+   * The package's default accent text (92% accent) is 3.4:1 on paper, and a focus ring in the
+   * raw accent is 2.4:1 on the base, so both use a deeper mix in light mode.
+   */
+  --jt-accent: #00ab98;
+  --jt-accent-ink: #04201d;
+  --jt-accent-text: light-dark(
+    color-mix(in oklab, var(--jt-accent) 75%, black),
+    color-mix(in oklab, var(--jt-accent) 80%, white)
+  );
+  --jt-focus-color: var(--jt-accent-text);
 
   --bg: var(--jt-base);
   --panel: var(--jt-paper);
@@ -83,7 +93,7 @@ code {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--jt-focus-color);
   outline-offset: 2px;
 }
 
@@ -433,7 +443,7 @@ input[type='range']::-moz-range-thumb {
   transform: translateX(12px);
 }
 .toggle input:focus-visible + .toggle-track {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--jt-focus-color);
   outline-offset: 2px;
 }
 .toggle-text {
