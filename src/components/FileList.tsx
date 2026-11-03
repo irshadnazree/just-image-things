@@ -1,3 +1,4 @@
+import { Button } from 'just-things-ui'
 import { useEffect, useRef, useState } from 'react'
 import { useFreshStats, useStore, type Item } from '../app/store'
 import { FORMAT_BY_ID, formatFromName, INPUT_LABELS } from '../lib/formats'
@@ -208,9 +209,9 @@ export function FileList() {
         </span>
         <span className="spacer" />
         <AddButtons compact disabled={running} />
-        <button type="button" className="btn btn-ghost" onClick={clear} disabled={running}>
+        <Button size="sm" variant="ghost" onClick={clear} disabled={running}>
           Clear
-        </button>
+        </Button>
       </div>
       <div
         ref={scroller}

@@ -1,3 +1,4 @@
+import { Button } from 'just-things-ui'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PreviewRunner } from '../app/preview'
 import { useStore } from '../app/store'
@@ -124,9 +125,9 @@ export function Preview() {
             </button>
           </div>
         )}
-        <button type="button" className="btn btn-ghost" onClick={() => setCollapsed((c) => !c)} aria-expanded={!collapsed}>
+        <Button size="sm" variant="ghost" onClick={() => setCollapsed((c) => !c)} aria-expanded={!collapsed}>
           {collapsed ? 'Show' : 'Hide'}
-        </button>
+        </Button>
       </div>
 
       {!collapsed && (

@@ -1,3 +1,4 @@
+import { Button } from 'just-things-ui'
 import { useMemo, useRef, useState } from 'react'
 import { useStore } from '../app/store'
 import { autoWorkerCount } from '../app/pool'
@@ -52,27 +53,25 @@ function PresetBar() {
         )}
       </select>
       {selected && !selected.builtin ? (
-        <button
-          type="button"
-          className="btn btn-ghost"
+        <Button
+          variant="ghost"
           onClick={() => {
             deletePreset(selected.id)
             setValue('')
           }}
         >
           Delete preset
-        </button>
+        </Button>
       ) : (
-        <button
-          type="button"
-          className="btn btn-ghost"
+        <Button
+          variant="ghost"
           onClick={() => {
             const name = prompt('Name this preset')
             if (name?.trim()) savePreset(name.trim())
           }}
         >
           Save preset
-        </button>
+        </Button>
       )}
     </div>
   )
@@ -400,9 +399,9 @@ export function DestinationPicker() {
           <span className={folder ? undefined : 'muted'}>
             {folder ? `Into “${folder.name}”` : 'Asks when you convert'}
           </span>
-          <button type="button" className="btn btn-ghost" onClick={chooseFolder}>
+          <Button size="sm" variant="ghost" onClick={chooseFolder}>
             {folder ? 'Change' : 'Choose now'}
-          </button>
+          </Button>
         </div>
       ) : (
         <p className="note">
@@ -466,9 +465,9 @@ export function SettingsPanel() {
     <div className="settings" id="settings">
       <div className="sheet-head">
         <h2>Settings</h2>
-        <button type="button" className="btn btn-primary" onClick={() => setOpen(false)}>
+        <Button variant="primary" onClick={() => setOpen(false)}>
           Done
-        </button>
+        </Button>
       </div>
       {running && <p className="note locked-note">Settings are locked while converting.</p>}
       <PresetBar />

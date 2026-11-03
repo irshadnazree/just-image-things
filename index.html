@@ -6,6 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Batch convert, compress, resize and rename images in your browser. HEIC, AVIF, WebP, JPEG XL and more. Nothing is uploaded." />
     <title>just image things</title>
+    <!-- Stored theme on <html> before first paint. Same string as themeScript from just-things-ui. -->
+    <script>
+      (function(){try{var t=localStorage.getItem("jt-theme");if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()
+    </script>
   </head>
   <body>
     <div id="root"></div>

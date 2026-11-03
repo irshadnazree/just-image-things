@@ -1,3 +1,4 @@
+import { AppHeader, AppHeaderBadge, ThemeToggle } from 'just-things-ui'
 import { useEffect } from 'react'
 import { useStore } from './app/store'
 import { FileList } from './components/FileList'
@@ -25,17 +26,23 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
-        <span className="wordmark">just image things</span>
-        <span className="badge" title="Images are processed with WebAssembly in your browser">
-          <span className="badge-dot" aria-hidden />
-          Runs locally · nothing uploaded
-        </span>
-        <span className="spacer" />
-        <a className="topbar-link" href="https://github.com/irshadnazree/just-image-things" target="_blank" rel="noreferrer">
-          Source
-        </a>
-      </header>
+      <AppHeader
+        className="topbar"
+        app="image"
+        badge={
+          <AppHeaderBadge title="Images are processed with WebAssembly in your browser">
+            Runs locally · nothing uploaded
+          </AppHeaderBadge>
+        }
+        actions={
+          <>
+            <a href="https://github.com/irshadnazree/just-image-things" target="_blank" rel="noreferrer">
+              Source
+            </a>
+            <ThemeToggle />
+          </>
+        }
+      />
       <aside className={`sidebar ${settingsOpen ? 'is-open' : ''}`} aria-label="Settings">
         <SettingsPanel />
       </aside>

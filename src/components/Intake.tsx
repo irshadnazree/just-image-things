@@ -1,3 +1,4 @@
+import { Button } from 'just-things-ui'
 import { useEffect, useRef, useState } from 'react'
 import { filesFromDataTransfer, filesFromList } from '../app/intake'
 import { useStore } from '../app/store'
@@ -23,22 +24,22 @@ export function AddButtons({ compact, disabled }: { compact?: boolean; disabled?
         onChange={onPick}
         {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
       />
-      <button
-        type="button"
-        className={compact ? 'btn btn-ghost' : 'btn btn-primary'}
+      <Button
+        size={compact ? 'sm' : 'md'}
+        variant={compact ? 'ghost' : 'primary'}
         disabled={disabled}
         onClick={() => filesInput.current?.click()}
       >
         Add files
-      </button>
-      <button
-        type="button"
-        className={compact ? 'btn btn-ghost' : 'btn'}
+      </Button>
+      <Button
+        size={compact ? 'sm' : 'md'}
+        variant={compact ? 'ghost' : 'secondary'}
         disabled={disabled}
         onClick={() => folderInput.current?.click()}
       >
         Add folder
-      </button>
+      </Button>
     </>
   )
 }
@@ -136,9 +137,9 @@ export function EmptyState() {
           {['JPEG', 'PNG', 'WebP', 'AVIF', 'HEIC', 'JPEG\u00a0XL', 'TIFF', 'GIF', 'BMP', 'ICO', 'QOI', 'SVG'].join('\u00a0· ')}
         </p>
         <p className="muted small for-pointer">You can also paste an image with {'⌘V\u00a0/\u00a0Ctrl+V'}.</p>
-        <button type="button" className="btn btn-ghost empty-settings" onClick={() => setSettingsOpen(true)}>
+        <Button variant="ghost" className="empty-settings" onClick={() => setSettingsOpen(true)}>
           Choose format and settings first
-        </button>
+        </Button>
       </div>
     </div>
   )

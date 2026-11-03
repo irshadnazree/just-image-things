@@ -1,3 +1,4 @@
+import { Button } from 'just-things-ui'
 import { useEffect, useState } from 'react'
 import { useFreshStats, useStore } from '../app/store'
 import { FORMAT_BY_ID } from '../lib/formats'
@@ -88,18 +89,18 @@ export function RunBar() {
             </span>
             <span className="muted">{timeLeft}</span>
           </div>
-          <button type="button" className="btn btn-block btn-lg" onClick={cancel}>
+          <Button className="run-button" onClick={cancel}>
             Cancel
-          </button>
+          </Button>
         </>
       ) : (
         <>
           {count > 0 && (
             <div className="run-settings">
               <span className="run-settings-text">{settingsSummary(settings, count)}</span>
-              <button type="button" className="btn" onClick={() => setSettingsOpen(true)}>
+              <Button size="sm" onClick={() => setSettingsOpen(true)}>
                 Settings
-              </button>
+              </Button>
             </div>
           )}
           {count > 0 && (
@@ -108,14 +109,9 @@ export function RunBar() {
             </div>
           )}
           {notice && !fresh && <p className="notice">{notice}</p>}
-          <button
-            type="button"
-            className={`btn btn-block btn-lg ${fresh ? '' : 'btn-primary'}`}
-            disabled={!count}
-            onClick={start}
-          >
+          <Button className="run-button" variant={fresh ? 'secondary' : 'primary'} disabled={!count} onClick={start}>
             {label}
-          </button>
+          </Button>
         </>
       )}
     </div>

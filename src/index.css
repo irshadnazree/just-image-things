@@ -1,43 +1,31 @@
+/*
+ * Theme and tokens come from just-things-ui (imported before this file in main.tsx).
+ * The app sets only its accent. The legacy names below map onto the package tokens so the
+ * controls not yet migrated follow the same theme (system, or data-theme from ThemeToggle).
+ * New CSS should use the --jt-* tokens directly.
+ */
 :root {
-  --bg: #f4f4f1;
-  --panel: #ffffff;
-  --panel-2: #f9f9f7;
-  --border: #e2e2dc;
-  --border-strong: #cfcfc7;
-  --text: #17181a;
-  --muted: #4d5056;
-  --accent: #cf3d17;
-  --accent-ink: #ffffff;
-  --accent-soft: color-mix(in oklab, var(--accent) 12%, transparent);
-  --good: #12804f;
-  --bad: #b4232f;
-  --checker-a: #ececea;
-  --checker-b: #ffffff;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 16px rgb(0 0 0 / 0.04);
-  --radius: 8px;
-  --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
-  color-scheme: light;
-}
+  --jt-accent: light-dark(#cf3d17, #ff6a3d);
+  --jt-accent-ink: light-dark(#fff, #1a0802);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0d0e10;
-    --panel: #15171a;
-    --panel-2: #1b1d21;
-    --border: #262930;
-    --border-strong: #353942;
-    --text: #e9eaec;
-    --muted: #a3a8b0;
-    --accent: #ff6a3d;
-    --accent-ink: #1a0802;
-    --good: #45d18f;
-    --bad: #ff6b76;
-    --checker-a: #1d1f23;
-    --checker-b: #25282d;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
-    color-scheme: dark;
-  }
+  --bg: var(--jt-base);
+  --panel: var(--jt-paper);
+  --panel-2: color-mix(in oklab, var(--jt-paper) 97%, var(--jt-ink));
+  --border: var(--jt-line);
+  --border-strong: var(--jt-line-strong);
+  --text: var(--jt-ink);
+  --muted: var(--jt-ink-muted);
+  --accent: var(--jt-accent);
+  --accent-ink: var(--jt-accent-ink);
+  --accent-soft: var(--jt-accent-soft);
+  --good: var(--jt-good);
+  --bad: var(--jt-bad);
+  --checker-a: light-dark(#ececea, #1d1f23);
+  --checker-b: light-dark(#ffffff, #25282d);
+  --shadow: 0 1px 2px light-dark(rgb(0 0 0 / 0.06), rgb(0 0 0 / 0.4)), 0 4px 16px light-dark(rgb(0 0 0 / 0.04), transparent);
+  --radius: 8px;
+  --sans: var(--jt-font-sans);
+  --mono: var(--jt-font-mono);
 }
 
 * {
@@ -112,45 +100,9 @@ code {
   height: 100%;
 }
 
+/* The header is AppHeader from just-things-ui; only its place in the grid is set here. */
 .topbar {
   grid-area: top;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 18px;
-  background: var(--bg);
-}
-
-.wordmark {
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-size: 15px;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--muted);
-  padding: 2px 9px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-}
-.badge-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--good);
-}
-
-.topbar-link {
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 13px;
-}
-.topbar-link:hover {
-  color: var(--text);
 }
 
 .sidebar {
@@ -227,9 +179,6 @@ code {
     padding-bottom: calc(14px + env(safe-area-inset-bottom));
   }
   .run-bar.is-empty {
-    display: none;
-  }
-  .badge {
     display: none;
   }
 }
@@ -551,57 +500,9 @@ fieldset:disabled {
 
 /* ---------- buttons ---------- */
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 1px solid var(--border-strong);
-  background: var(--panel);
-  border-radius: 7px;
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 550;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.btn:hover:not(:disabled) {
-  border-color: var(--text);
-}
-.btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-.btn-ghost {
-  border-color: transparent;
-  background: transparent;
-  color: var(--muted);
-}
-.btn-ghost:hover:not(:disabled) {
-  color: var(--text);
-  border-color: var(--border);
-}
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-}
-.btn-primary:hover:not(:disabled) {
-  border-color: var(--accent);
-  filter: brightness(1.06);
-}
-.btn-primary:disabled {
-  background: var(--panel-2);
-  border-color: var(--border);
-  color: var(--muted);
-  opacity: 1;
-}
-.btn-block {
+/* Buttons are Button from just-things-ui. The run bar's buttons span its width. */
+.run-button {
   width: 100%;
-}
-.btn-lg {
-  padding: 10px 14px;
-  font-size: 14px;
 }
 
 /* ---------- run bar ---------- */
@@ -761,10 +662,6 @@ fieldset:disabled {
   gap: 8px;
   justify-content: center;
   margin-bottom: 28px;
-}
-.empty-actions .btn {
-  padding: 10px 18px;
-  font-size: 15px;
 }
 .empty-settings {
   display: none;
@@ -1244,7 +1141,6 @@ fieldset:disabled {
   .for-touch {
     display: inline;
   }
-  .btn,
   .segmented button,
   .chip {
     min-height: 40px;
