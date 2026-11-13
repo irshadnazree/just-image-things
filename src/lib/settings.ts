@@ -1,4 +1,4 @@
-import type { EncodableFormat, LossyFormat } from './formats'
+import type { EncodableFormat, LossyFormat } from './formats.ts'
 
 export type ResizeMode = 'none' | 'maxHeight' | 'maxWidth' | 'longEdge' | 'fit' | 'percent'
 export type ResizeMethod = 'lanczos3' | 'mitchell' | 'catrom' | 'triangle'

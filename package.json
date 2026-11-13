@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "agent": "bun cli/agent.ts",
     "build": "tsc -b && cf build --mode production",
     "lint": "oxlint",
     "preview": "vite preview",
