@@ -1,4 +1,4 @@
-import { AppHeader, AppHeaderBadge, ThemeToggle } from 'just-things-ui'
+import { AppHeader, AppHeaderBadge, ThemeToggle } from '@irshadnazree/just-things-ui'
 import { useEffect } from 'react'
 import { useStore } from './app/store'
 import { FileList } from './components/FileList'

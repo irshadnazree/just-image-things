@@ -1,4 +1,4 @@
-import { Button } from 'just-things-ui'
+import { Button } from '@irshadnazree/just-things-ui'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PreviewRunner } from '../app/preview'
 import { useStore } from '../app/store'

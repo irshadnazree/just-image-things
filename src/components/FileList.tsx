@@ -1,4 +1,4 @@
-import { Button } from 'just-things-ui'
+import { Button } from '@irshadnazree/just-things-ui'
 import { useEffect, useRef, useState } from 'react'
 import { useFreshStats, useStore, type Item } from '../app/store'
 import { FORMAT_BY_ID, formatFromName, INPUT_LABELS } from '../lib/formats'

@@ -1,4 +1,4 @@
-import { Button } from 'just-things-ui'
+import { Button } from '@irshadnazree/just-things-ui'
 import { useMemo, useRef, useState } from 'react'
 import { useStore } from '../app/store'
 import { autoWorkerCount } from '../app/pool'
