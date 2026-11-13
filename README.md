@@ -34,6 +34,19 @@ A web rework of [`image-script.py`](https://github.com/irshadnazree/media-relate
 - Uses every core: a worker pool that shrinks itself if the browser runs out of memory.
 - Presets, built-in and your own, stored in the browser.
 
+## Agents and the command line
+
+The same pipeline can run without the UI, so an AI agent (or a script) can process a folder for you. `bun run agent` builds the site, serves it on `127.0.0.1`, opens it in headless Chrome, Chromium, Edge or Brave, and writes the results to disk. Images still never leave your machine.
+
+```sh
+bun run agent ~/Pictures/trip -f webp -q 75 --long-edge 2048
+bun run agent ~/Pictures/iphone --preset heic-jpeg -o ~/Desktop/jpegs
+bun run agent shots/ -f avif --rename "{date}-{n:3}" --json   # JSON report on stdout
+bun run agent --help                                          # every option
+```
+
+Output goes to `<folder>_processed` unless you pass `-o`. Originals are never touched. See [AGENTS.md](AGENTS.md) for how agents should map requests to flags.
+
 ## Development
 
 Use Bun 1.4.2 (pinned in `package.json`) for installs and project commands. The Cloudflare CLI runs under Node.js and requires Node.js 22.23+, 24.22+, or 26.12+; do not force it to run with `bun --bun`.
