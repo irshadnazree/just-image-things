@@ -1,0 +1,117 @@
+import type { EncodableFormat } from '../lib/formats'
+import { FORMAT_BY_ID } from '../lib/formats'
+import { outputPath, renderName, reservePath } from '../lib/naming'
+import type { Settings } from '../lib/settings'
+import { commonRoot } from './intake'
+import { CancelledError, type WorkerPool } from './pool'
+import type { Sink } from './sinks'
+import { rasterizeSvg } from './svg'
+
+export interface BatchInput {
+  /** Path relative to whatever was dropped or picked, e.g. `trip/day1/a.heic`. */
+  relPath: string
+  /** File name with extension. */
+  name: string
+  /** The bytes, or a loader so a large batch is read from disk only as workers free up. */
+  file: Blob | (() => Promise<Blob>)
+}
+
+export interface BatchOutput {
+  path: string
+  size: number
+  format: EncodableFormat
+  width: number
+  height: number
+  /** The original bytes were kept because re-encoding made the file bigger. */
+  kept: boolean
+  /** The sink refused the write because the file already exists. */
+  skipped: boolean
+}
+
+export interface BatchHandlers {
+  onStart?(index: number): void
+  onDone?(index: number, out: BatchOutput): void
+  onError?(index: number, message: string): void
+  /** Called for each file that was running or still queued when the batch was cancelled. */
+  onCancelled?(index: number): void
+}
+
+export interface BatchRun {
+  done: Promise<{ cancelled: boolean }>
+  cancel(): void
+}
+
+/**
+ * Process a batch through a worker pool into a sink. Shared by the UI and agent mode
+ * so both name, place and encode files the same way.
+ */
+export function runBatch(
+  inputs: BatchInput[],
+  settings: Settings,
+  pool: WorkerPool,
+  sink: Sink,
+  handlers: BatchHandlers = {},
+): BatchRun {
+  const taken = new Set<string>()
+  const stripRoot = commonRoot(inputs.map((i) => i.relPath)) !== null
+  const date = new Date()
+  let cancelled = false
+  let nextIndex = 0
+
+  const processOne = async (input: BatchInput, index: number) => {
+    handlers.onStart?.(index)
+    try {
+      const file = typeof input.file === 'function' ? await input.file() : input.file
+      const isSvg = /\.svg$/i.test(input.name)
+      const raster = isSvg ? await rasterizeSvg(file, settings) : undefined
+      const res = await pool.run({ type: 'process', id: index, file, name: input.name, settings, raster })
+      const info = FORMAT_BY_ID[res.format]
+      const base = renderName(settings.rename.template, {
+        original: input.name,
+        n: settings.rename.startAt + index,
+        width: res.width,
+        height: res.height,
+        format: info.ext,
+        date,
+      })
+      const path = reservePath(outputPath(input.relPath, base, info.ext, settings.output.keepStructure, stripRoot), taken)
+      const size = res.bytes.byteLength
+      const outcome = await sink.write(path, res.bytes)
+      handlers.onDone?.(index, {
+        path: outcome.path,
+        size,
+        format: res.format,
+        width: res.width,
+        height: res.height,
+        kept: res.keptOriginal,
+        skipped: outcome.skipped,
+      })
+    } catch (err) {
+      if (err instanceof CancelledError || cancelled) {
+        handlers.onCancelled?.(index)
+        return
+      }
+      handlers.onError?.(index, err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  const lane = async () => {
+    while (!cancelled && nextIndex < inputs.length) {
+      const index = nextIndex++
+      await processOne(inputs[index], index)
+    }
+  }
+
+  // A few extra lanes keep workers fed while the main thread writes output.
+  const done = Promise.all(Array.from({ length: pool.limit + 2 }, lane)).then(() => ({ cancelled }))
+
+  return {
+    done,
+    cancel() {
+      if (cancelled) return
+      cancelled = true
+      for (let i = nextIndex; i < inputs.length; i++) handlers.onCancelled?.(i)
+      nextIndex = inputs.length
+    },
+  }
+}

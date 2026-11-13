@@ -1,13 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { EncodableFormat } from '../lib/formats'
-import { FORMAT_BY_ID } from '../lib/formats'
-import { outputPath, renderName, reservePath } from '../lib/naming'
 import { DEFAULT_SETTINGS, mergeSettings, type Preset, type Settings } from '../lib/settings'
+import { runBatch } from './batch'
 import { commonRoot, type IntakeFile } from './intake'
-import { CancelledError, WorkerPool, autoWorkerCount } from './pool'
+import { WorkerPool, autoWorkerCount } from './pool'
 import { FilesSink, FolderSink, ZipSink, ensureWritable, pickOutputFolder, supportsFolderOutput, type Sink } from './sinks'
-import { rasterizeSvg } from './svg'
 
 export type ItemStatus = 'idle' | 'queued' | 'processing' | 'done' | 'skipped' | 'error'
 
@@ -229,13 +227,7 @@ export const useStore = create<State>()(
           items: items.map((i) => ({ ...i, status: 'queued', error: undefined, outSize: undefined, outPath: undefined })),
         })
 
-        const taken = new Set<string>()
-        const stripRoot = commonRoot(items.map((i) => i.relPath)) !== null
-        const date = new Date()
-        let cancelled = false
-        let nextIndex = 0
         let lastStatsPush = 0
-
         const pushStats = (force = false) => {
           const now = performance.now()
           if (!force && now - lastStatsPush < 100) return
@@ -243,62 +235,41 @@ export const useStore = create<State>()(
           set({ stats: { ...stats } })
         }
 
-        const processOne = async (item: Item, index: number) => {
-          patchItem(item.id, { status: 'processing' })
-          try {
-            const isSvg = /\.svg$/i.test(item.file.name)
-            const raster = isSvg ? await rasterizeSvg(item.file, settings) : undefined
-            const res = await pool.run({ type: 'process', id: item.id, file: item.file, name: item.file.name, settings, raster })
-            const info = FORMAT_BY_ID[res.format]
-            const base = renderName(settings.rename.template, {
-              original: item.file.name,
-              n: settings.rename.startAt + index,
-              width: res.width,
-              height: res.height,
-              format: info.ext,
-              date,
-            })
-            const path = reservePath(outputPath(item.relPath, base, info.ext, settings.output.keepStructure, stripRoot), taken)
-            const size = res.bytes.byteLength
-            const outcome = await sink.write(path, res.bytes)
-            stats.done += 1
-            stats.bytesIn += item.file.size
-            stats.bytesOut += outcome.skipped ? item.file.size : size
-            patchItem(item.id, {
-              status: outcome.skipped ? 'skipped' : 'done',
-              outSize: size,
-              outPath: outcome.path,
-              outFormat: res.format,
-              width: res.width,
-              height: res.height,
-              kept: res.keptOriginal,
-              error: outcome.skipped ? 'A file with this name already exists' : undefined,
-            })
-          } catch (err) {
-            if (err instanceof CancelledError || cancelled) {
-              patchItem(item.id, { status: 'idle' })
-              return
-            }
-            stats.failed += 1
-            patchItem(item.id, { status: 'error', error: err instanceof Error ? err.message : String(err) })
-          }
-          pushStats()
-        }
+        const batch = runBatch(
+          items.map((i) => ({ relPath: i.relPath, name: i.file.name, file: i.file })),
+          settings,
+          pool,
+          sink,
+          {
+            onStart: (index) => patchItem(items[index].id, { status: 'processing' }),
+            onDone: (index, out) => {
+              const item = items[index]
+              stats.done += 1
+              stats.bytesIn += item.file.size
+              stats.bytesOut += out.skipped ? item.file.size : out.size
+              patchItem(item.id, {
+                status: out.skipped ? 'skipped' : 'done',
+                outSize: out.size,
+                outPath: out.path,
+                outFormat: out.format,
+                width: out.width,
+                height: out.height,
+                kept: out.kept,
+                error: out.skipped ? 'A file with this name already exists' : undefined,
+              })
+              pushStats()
+            },
+            onError: (index, message) => {
+              stats.failed += 1
+              patchItem(items[index].id, { status: 'error', error: message })
+              pushStats()
+            },
+            onCancelled: (index) => patchItem(items[index].id, { status: 'idle' }),
+          },
+        )
+        cancelHook = batch.cancel
 
-        const lane = async () => {
-          while (!cancelled && nextIndex < items.length) {
-            const index = nextIndex++
-            await processOne(items[index], index)
-          }
-        }
-
-        cancelHook = () => {
-          cancelled = true
-          for (const item of items.slice(nextIndex)) patchItem(item.id, { status: 'idle' })
-        }
-
-        // A few extra lanes keep workers fed while the main thread writes output.
-        await Promise.all(Array.from({ length: pool.limit + 2 }, lane))
+        const { cancelled } = await batch.done
         pool.dispose()
         activePool = null
         cancelHook = null
