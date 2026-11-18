@@ -1,15 +1,6 @@
 import { parseArgs } from 'node:util'
-import type { EncodableFormat } from '../src/lib/formats.ts'
-import {
-  BUILTIN_PRESETS,
-  DEFAULT_SETTINGS,
-  EFFORT_RANGE,
-  ICO_SIZES,
-  mergeSettings,
-  type ConflictPolicy,
-  type ResizeMethod,
-  type Settings,
-} from '../src/lib/settings.ts'
+import { applyFlags, BOOLEAN_FLAGS, STRING_FLAGS, UsageError, type FlagValues } from '../src/lib/flags.ts'
+import { BUILTIN_PRESETS, DEFAULT_SETTINGS, ICO_SIZES, type Settings } from '../src/lib/settings.ts'
 
 export const HELP = `just-image-things agent CLI
 
@@ -89,12 +80,7 @@ EXAMPLES
   bun run agent logo.svg -f ico --ico-sizes 16,32,48,256
 `
 
-export class UsageError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'UsageError'
-  }
-}
+export { UsageError }
 
 export interface CliOptions {
   inputs: string[]
@@ -106,43 +92,6 @@ export interface CliOptions {
   rebuild: boolean
   browser?: string
   help: boolean
-}
-
-const FORMAT_ALIASES: Record<string, EncodableFormat | 'original'> = {
-  jpeg: 'jpeg',
-  jpg: 'jpeg',
-  png: 'png',
-  webp: 'webp',
-  avif: 'avif',
-  jxl: 'jxl',
-  jpegxl: 'jxl',
-  gif: 'gif',
-  tiff: 'tiff',
-  tif: 'tiff',
-  bmp: 'bmp',
-  ico: 'ico',
-  qoi: 'qoi',
-  original: 'original',
-  keep: 'original',
-}
-
-const LOSSY = ['jpeg', 'webp', 'avif', 'jxl'] as const
-const LOSSLESS_TOGGLE = ['webp', 'avif', 'jxl'] as const
-const EFFORT_FORMATS = ['png', 'webp', 'avif', 'jxl'] as const
-const RESIZE_METHODS: ResizeMethod[] = ['lanczos3', 'mitchell', 'catrom', 'triangle']
-const CONFLICTS: ConflictPolicy[] = ['rename', 'overwrite', 'skip']
-
-function int(flag: string, value: string | undefined, min: number, max: number): number | undefined {
-  if (value === undefined) return undefined
-  const n = Number(value)
-  if (!Number.isInteger(n) || n < min || n > max) throw new UsageError(`--${flag} must be a whole number from ${min} to ${max}, got "${value}"`)
-  return n
-}
-
-function oneOf<T extends string>(flag: string, value: string | undefined, allowed: readonly T[]): T | undefined {
-  if (value === undefined) return undefined
-  if (!(allowed as readonly string[]).includes(value)) throw new UsageError(`--${flag} must be one of ${allowed.join(', ')}, got "${value}"`)
-  return value as T
 }
 
 /** Turn command-line arguments into the web app's Settings plus CLI-only switches. */
@@ -205,105 +154,16 @@ export function parseCli(argv: string[], readConfig: (path: string) => unknown =
   if (v.help) return { ...base, settings: DEFAULT_SETTINGS }
   if (!positionals.length) throw new UsageError('Give at least one folder or image file. Run with --help for usage.')
 
-  let settings: Settings = structuredClone(DEFAULT_SETTINGS)
-  if (v.preset) {
-    const preset = BUILTIN_PRESETS.find((p) => p.id === v.preset)
-    if (!preset) throw new UsageError(`Unknown preset "${v.preset}". Choose from ${BUILTIN_PRESETS.map((p) => p.id).join(', ')}.`)
-    settings = mergeSettings(settings, structuredClone(preset.settings))
-  }
+  let config: Partial<Settings> | undefined
   if (v.config) {
     const patch = readConfig(v.config)
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new UsageError(`--config ${v.config} must contain a JSON object`)
-    settings = mergeSettings(settings, patch as Partial<Settings>)
+    config = patch as Partial<Settings>
   }
-
-  if (v.format !== undefined) {
-    const format = FORMAT_ALIASES[v.format.toLowerCase()]
-    if (!format) throw new UsageError(`Unknown format "${v.format}". Choose from ${Object.keys(FORMAT_ALIASES).join(', ')}.`)
-    settings.format = format
-  }
-  const target = settings.format
-
-  const quality = int('quality', v.quality, 0, 100)
-  if (quality !== undefined) {
-    const formats = target === 'original' ? LOSSY : LOSSY.filter((f) => f === target)
-    if (!formats.length) throw new UsageError(`--quality only applies to ${LOSSY.join(', ')} (or --format original)`)
-    for (const f of formats) settings.quality[f] = quality
-  }
-
-  if (v.lossless) {
-    const formats = target === 'original' ? LOSSLESS_TOGGLE : LOSSLESS_TOGGLE.filter((f) => f === target)
-    if (!formats.length) throw new UsageError(`--lossless only applies to ${LOSSLESS_TOGGLE.join(', ')}`)
-    for (const f of formats) settings.lossless[f] = true
-  }
-
-  if (v.effort !== undefined) {
-    const formats = target === 'original' ? EFFORT_FORMATS : EFFORT_FORMATS.filter((f) => f === target)
-    if (!formats.length) throw new UsageError(`--effort only applies to ${EFFORT_FORMATS.join(', ')}`)
-    for (const f of formats) {
-      const { min, max } = EFFORT_RANGE[f]
-      const n = Number(v.effort)
-      if (!Number.isInteger(n)) throw new UsageError(`--effort must be a whole number, got "${v.effort}"`)
-      if (target !== 'original' && (n < min || n > max)) throw new UsageError(`--effort for ${f} must be from ${min} to ${max}`)
-      settings.effort[f] = Math.min(max, Math.max(min, n))
-    }
-  }
-
-  if (v.colors !== undefined) {
-    if (target === 'gif') settings.gif.colors = int('colors', v.colors, 2, 256)!
-    else if (target === 'png' || target === 'original') {
-      const n = int('colors', v.colors, 0, 256)!
-      if (n === 1) throw new UsageError('--colors must be 0 (off) or from 2 to 256')
-      settings.png.colors = n
-    } else throw new UsageError('--colors only applies to png and gif')
-  }
-
-  if (v.background !== undefined) {
-    if (!/^#?[0-9a-f]{6}$/i.test(v.background)) throw new UsageError(`--background must be a hex colour like #ffffff, got "${v.background}"`)
-    settings.jpeg.background = v.background.startsWith('#') ? v.background : `#${v.background}`
-  }
-  if (v['no-progressive']) settings.jpeg.progressive = false
-
-  if (v['ico-sizes'] !== undefined) {
-    const sizes = v['ico-sizes'].split(',').map((s) => Number(s.trim()))
-    const bad = sizes.filter((s) => !ICO_SIZES.includes(s))
-    if (!sizes.length || bad.length) throw new UsageError(`--ico-sizes must be a comma list from ${ICO_SIZES.join(', ')}`)
-    settings.ico.sizes = [...new Set(sizes)].sort((a, b) => a - b)
-  }
-
-  if (v['force-reencode']) settings.output.skipIfLarger = false
-
-  const resizeFlags = (['long-edge', 'max-width', 'max-height', 'fit', 'scale'] as const).filter((f) => v[f] !== undefined)
-  if (resizeFlags.length > 1) throw new UsageError(`Pick one resize option, got --${resizeFlags.join(' and --')}`)
-  const r = settings.resize
-  if (v['long-edge'] !== undefined) Object.assign(r, { mode: 'longEdge', longEdge: int('long-edge', v['long-edge'], 1, 65535) })
-  if (v['max-width'] !== undefined) Object.assign(r, { mode: 'maxWidth', width: int('max-width', v['max-width'], 1, 65535) })
-  if (v['max-height'] !== undefined) Object.assign(r, { mode: 'maxHeight', height: int('max-height', v['max-height'], 1, 65535) })
-  if (v.fit !== undefined) {
-    const m = /^(\d+)x(\d+)$/i.exec(v.fit)
-    if (!m) throw new UsageError(`--fit must look like 1920x1080, got "${v.fit}"`)
-    Object.assign(r, { mode: 'fit', width: int('fit', m[1], 1, 65535), height: int('fit', m[2], 1, 65535) })
-  }
-  if (v.scale !== undefined) Object.assign(r, { mode: 'percent', percent: int('scale', v.scale.replace(/%$/, ''), 1, 1000) })
-  if (v.upscale) r.allowUpscale = true
-  const method = oneOf('resize-method', v['resize-method'], RESIZE_METHODS)
-  if (method) r.method = method
-
-  if (v.rename !== undefined) settings.rename.template = v.rename
-  const startAt = int('start-at', v['start-at'], 0, 1_000_000_000)
-  if (startAt !== undefined) settings.rename.startAt = startAt
-
-  if (v['keep-exif']) settings.metadata.keepExif = true
-  if (v['keep-gps']) {
-    if (!settings.metadata.keepExif) throw new UsageError('--keep-gps needs --keep-exif')
-    settings.metadata.stripGps = false
-  }
-
-  if (v.flat) settings.output.keepStructure = false
-  const conflict = oneOf('conflict', v.conflict, CONFLICTS)
-  if (conflict) settings.output.conflict = conflict
-  const workers = int('workers', v.workers, 1, 64)
-  if (workers !== undefined) settings.workers = workers
+  const flags: FlagValues = {}
+  for (const key of STRING_FLAGS) if (v[key] !== undefined) flags[key] = v[key]
+  for (const key of BOOLEAN_FLAGS) if (v[key]) flags[key] = true
+  const settings = applyFlags(flags, { config })
 
   return { ...base, settings }
 }
