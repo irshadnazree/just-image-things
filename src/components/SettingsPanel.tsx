@@ -461,6 +461,7 @@ function OutputSection() {
 export function SettingsPanel() {
   const running = useStore((s) => s.running)
   const setOpen = useStore((s) => s.setSettingsOpen)
+  const fromLink = useStore((s) => s.linkSettings !== null)
   return (
     <div className="settings" id="settings">
       <div className="sheet-head">
@@ -470,6 +471,7 @@ export function SettingsPanel() {
         </Button>
       </div>
       {running && <p className="note locked-note">Settings are locked while converting.</p>}
+      {fromLink && <p className="note">Using settings from the link. They apply to this visit only.</p>}
       <PresetBar />
       <fieldset disabled={running} className="settings-fields">
         <FormatSection />

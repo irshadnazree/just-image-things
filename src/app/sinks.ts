@@ -149,10 +149,13 @@ export class ZipSink implements Sink {
     }
   }
 
-  /** Must be called from a click handler, before any other await, so the save dialog is allowed. */
-  static async create(fileName: string): Promise<ZipSink> {
+  /**
+   * Must be called from a click handler, before any other await, so the save dialog is allowed.
+   * Without `usePicker` the zip is always a plain download (scripted runs have no click to use).
+   */
+  static async create(fileName: string, usePicker = true): Promise<ZipSink> {
     let target: FileSystemFileHandle | null = null
-    if (supportsSavePicker) {
+    if (usePicker && supportsSavePicker) {
       target = await (window as unknown as PickerWindow).showSaveFilePicker({
         suggestedName: fileName,
         types: [{ description: 'ZIP archive', accept: { 'application/zip': ['.zip'] } }],

@@ -109,7 +109,7 @@ export function RunBar() {
             </div>
           )}
           {notice && !fresh && <p className="notice">{notice}</p>}
-          <Button className="run-button" variant={fresh ? 'secondary' : 'primary'} disabled={!count} onClick={start}>
+          <Button className="run-button" variant={fresh ? 'secondary' : 'primary'} disabled={!count} onClick={() => void start()}>
             {label}
           </Button>
         </>

@@ -23,6 +23,29 @@ export interface Item {
   error?: string
 }
 
+export interface RunReport {
+  ok: boolean
+  cancelled: boolean
+  /** Where the results went: individual downloads, a downloaded zip, or a picked folder. */
+  saved: { to: 'downloads' | 'zip' | 'folder'; name?: string }
+  total: number
+  failed: number
+  bytesIn: number
+  bytesOut: number
+  ms: number
+  files: {
+    input: string
+    status: ItemStatus
+    output?: string
+    format?: EncodableFormat
+    width?: number
+    height?: number
+    size?: number
+    keptOriginal?: boolean
+    error?: string
+  }[]
+}
+
 export const runKey = (items: Item[]) => items.map((i) => i.id).join(',')
 
 export interface RunStats {
@@ -52,6 +75,11 @@ interface State {
   notice: string | null
   /** Phones show the settings as a sheet over the page. */
   settingsOpen: boolean
+  /**
+   * Set while the page uses settings from its link (`?f=webp&q=75`). Those apply to this
+   * visit only: `saved` is what stays in storage, so a shared link never overwrites preferences.
+   */
+  linkSettings: { saved: Settings } | null
 
   addFiles(files: IntakeFile[]): void
   removeItem(id: number): void
@@ -62,7 +90,13 @@ interface State {
   savePreset(name: string): void
   deletePreset(id: string): void
   chooseFolder(): Promise<void>
-  start(): Promise<void>
+  /** Use these settings for this visit without saving them. */
+  useLinkSettings(settings: Settings): void
+  /**
+   * Run the batch. With `save`, scripted callers skip the folder and save pickers:
+   * `files` downloads each image, `zip` downloads one archive.
+   */
+  start(opts?: { save?: 'files' | 'zip' }): Promise<RunReport | null>
   setSettingsOpen(open: boolean): void
   cancel(): void
 }
@@ -112,6 +146,12 @@ export const useStore = create<State>()(
       stats: null,
       notice: null,
       settingsOpen: false,
+      linkSettings: null,
+
+      useLinkSettings(settings) {
+        const saved = get().linkSettings?.saved ?? get().settings
+        set({ settings, linkSettings: { saved } })
+      },
 
       setSettingsOpen(open) {
         set({ settingsOpen: open })
@@ -178,22 +218,26 @@ export const useStore = create<State>()(
         }
       },
 
-      async start() {
+      async start(opts = {}) {
         const state = get()
-        if (state.running || !state.items.length) return
+        if (state.running || !state.items.length) return null
         const settings = structuredClone(state.settings)
         const items = state.items
 
         // Pickers need the click's user activation, so they run before anything else is awaited.
         let sink: Sink
         try {
-          if (settings.output.destination === 'folder' && supportsFolderOutput) {
+          if (opts.save === 'files') {
+            sink = new FilesSink()
+          } else if (opts.save === 'zip') {
+            sink = await ZipSink.create(zipName(items), false)
+          } else if (settings.output.destination === 'folder' && supportsFolderOutput) {
             let folder = state.outputFolder
             if (!folder) {
               folder = await pickOutputFolder()
               set({ outputFolder: folder })
             } else if (!(await ensureWritable(folder))) {
-              return
+              return null
             }
             sink = new FolderSink(folder, settings.output.conflict)
           } else if (settings.output.destination === 'files' || items.length === 1) {
@@ -202,7 +246,7 @@ export const useStore = create<State>()(
             sink = await ZipSink.create(zipName(items))
           }
         } catch {
-          return // picker dismissed
+          return null // picker dismissed
         }
 
         const pool = new WorkerPool(settings.workers || autoWorkerCount())
@@ -292,6 +336,34 @@ export const useStore = create<State>()(
         stats.cancelled = cancelled
         flushPatches()
         set({ running: false, stats: { ...stats }, notice })
+
+        const finished = get().items
+        return {
+          ok: !cancelled && stats.failed === 0,
+          cancelled,
+          saved:
+            sink instanceof ZipSink
+              ? { to: 'zip', name: zipName(items) }
+              : sink instanceof FolderSink
+                ? { to: 'folder', name: get().outputFolder?.name }
+                : { to: 'downloads' },
+          total: stats.total,
+          failed: stats.failed,
+          bytesIn: stats.bytesIn,
+          bytesOut: stats.bytesOut,
+          ms: Math.round(stats.finishedAt - stats.startedAt),
+          files: finished.map((i) => ({
+            input: i.relPath,
+            status: i.status,
+            output: i.outPath,
+            format: i.outFormat,
+            width: i.width,
+            height: i.height,
+            size: i.outSize,
+            keptOriginal: i.kept || undefined,
+            error: i.error,
+          })),
+        }
       },
 
       cancel() {
@@ -303,7 +375,7 @@ export const useStore = create<State>()(
     {
       name: 'just-image-things',
       version: 1,
-      partialize: (s) => ({ settings: s.settings, presets: s.presets }),
+      partialize: (s) => ({ settings: s.linkSettings?.saved ?? s.settings, presets: s.presets }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<State>
         const settings = p.settings ? mergeSettings(current.settings, p.settings) : current.settings
