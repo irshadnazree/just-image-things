@@ -1,0 +1,31 @@
+# just image things
+
+> Convert, compress, resize and rename images. The website runs entirely in the browser (WebAssembly); nothing is uploaded.
+
+## With a browser tool
+
+Don't click through the UI. Open the page with settings in the link, put the files on the file input, call one function:
+
+1. Open https://image.ruxera.com/?f=webp&q=75&long-edge=1600 (settings from the link apply to that visit only)
+2. Set the image paths on `input#jit-files` (your browser tool's file upload action)
+3. Evaluate `await justImageThings.run()` and read the JSON report (output names, format, size, dimensions, errors)
+4. The outputs are browser downloads, one per image (`run(undefined, { save: "zip" })` for one zip). Find them where your browser tool reports downloads.
+
+`justImageThings.help` prints the full reference. Browsers with WebMCP (`navigator.modelContext`) also get `convert_images` and `list_queued_images` tools.
+
+## Without a browser
+
+From a clone of the repo, the CLI runs this site in headless Chrome: `bun run agent <folder> -f webp -q 75 --long-edge 1600 --json`.
+
+## Settings
+
+- `f` / `format`: webp, avif, jpeg, png, jxl, gif, tiff, bmp, ico, qoi, original (keep format; HEIC→JPEG, SVG→PNG)
+- `q` / `quality`: 0-100 (defaults jpeg 82, webp 80, avif 60, jxl 75); `lossless` (webp, avif, jxl); `effort`
+- Resize (pick one, never upscales without `upscale`): `long-edge`, `max-width`, `max-height`, `fit` (e.g. 1920x1080), `scale` (percent)
+- `rename`: template without extension, tokens `{name} {n} {n:3} {w} {h} {date} {fmt}`; `start-at`
+- `keep-exif` (JPEG→JPEG only), `keep-gps`, `force-reencode`, `colors`, `background`, `ico-sizes`
+- `p` / `preset`: web, compress, heic-jpeg, avif, favicon
+
+Inputs: JPEG, PNG/APNG, WebP, AVIF, HEIC/HEIF, JPEG XL, GIF, TIFF, BMP, ICO/CUR, QOI, SVG.
+
+Source: https://github.com/irshadnazree/just-image-things
