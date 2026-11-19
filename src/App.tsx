@@ -29,16 +29,14 @@ export default function App() {
       <AppHeader
         className="topbar"
         app="image"
-        badge={
-          <AppHeaderBadge title="Images are processed with WebAssembly in your browser">
-            Runs locally · nothing uploaded
-          </AppHeaderBadge>
-        }
         actions={
           <>
             <a href="https://github.com/irshadnazree/just-image-things" target="_blank" rel="noreferrer">
               Source
             </a>
+            <AppHeaderBadge title="Images are processed with WebAssembly in your browser">
+              Runs locally · nothing uploaded
+            </AppHeaderBadge>
             <ThemeToggle />
           </>
         }
