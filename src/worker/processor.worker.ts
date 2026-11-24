@@ -4,8 +4,9 @@ import { extractExifSegment, insertExifSegment, patchExifSegment, readOrientatio
 import { targetSize } from '../lib/resize'
 import { decodeImage } from './decode'
 import { encodeImage } from './encode'
+import { runGenerate } from './generate'
 import { resizeImage } from './resize'
-import type { ErrorResult, PreviewResult, ProcessResult, WorkerRequest } from './protocol'
+import type { ErrorResult, PreviewRequest, PreviewResult, ProcessRequest, ProcessResult, WorkerRequest } from './protocol'
 
 const OOM_PATTERN = /memory|allocation|out of bounds|aborted\(|array buffer|invalid array length/i
 
@@ -19,7 +20,7 @@ function keepOriginal(bytes: Uint8Array, isJpeg: boolean, metadata: { keepExif: 
   return stripJpegMetadata(bytes, exif).slice().buffer
 }
 
-async function run(req: WorkerRequest) {
+async function run(req: ProcessRequest | PreviewRequest) {
   const started = performance.now()
   const { settings } = req
   const buffer = await req.file.arrayBuffer()
@@ -105,7 +106,11 @@ async function run(req: WorkerRequest) {
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const req = event.data
   try {
-    await run(req)
+    if (req.type === 'generate') {
+      await runGenerate(req)
+    } else {
+      await run(req)
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     const result: ErrorResult = {

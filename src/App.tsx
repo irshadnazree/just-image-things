@@ -1,5 +1,6 @@
 import { AppHeader, AppHeaderBadge, ThemeToggle } from '@irshadnazree/just-things-ui'
 import { useEffect } from 'react'
+import { handleNavClick } from './app/router'
 import { useStore } from './app/store'
 import { FileList } from './components/FileList'
 import { DropOverlay, EmptyState } from './components/Intake'
@@ -30,6 +31,9 @@ export default function App() {
         app="image"
         actions={
           <>
+            <a href="/generate" onClick={(e) => handleNavClick(e, '/generate')}>
+              Generate
+            </a>
             <a href="https://github.com/irshadnazree/just-image-things" target="_blank" rel="noreferrer">
               Source
             </a>

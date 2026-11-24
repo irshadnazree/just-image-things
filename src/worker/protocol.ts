@@ -1,4 +1,5 @@
 import type { EncodableFormat, InputFormat } from '../lib/formats'
+import type { SearchPhase, SearchStatus } from '../lib/generate'
 import type { Settings } from '../lib/settings'
 
 export interface ProcessRequest {
@@ -15,7 +16,19 @@ export interface PreviewRequest extends Omit<ProcessRequest, 'type'> {
   type: 'preview'
 }
 
-export type WorkerRequest = ProcessRequest | PreviewRequest
+export interface GenerateRequest {
+  type: 'generate'
+  id: number
+  width: number
+  height: number
+  complexity: number
+  seed: number
+  format: EncodableFormat
+  lossless: boolean
+  targetBytes: number | null
+}
+
+export type WorkerRequest = ProcessRequest | PreviewRequest | GenerateRequest
 
 export interface ProcessResult {
   type: 'done'
@@ -39,6 +52,36 @@ export interface PreviewResult extends Omit<ProcessResult, 'type' | 'bytes'> {
   after: ImageBitmap
 }
 
+export interface GenerateProgressResult {
+  type: 'generate-progress'
+  id: number
+  attempt: number
+  maxAttempts: number
+  size: number
+  quality: number
+  complexity: number
+  phase: SearchPhase
+}
+
+export interface GenerateDoneResult {
+  type: 'generate-done'
+  id: number
+  bytes: ArrayBuffer
+  preview: ImageBitmap
+  width: number
+  height: number
+  format: EncodableFormat
+  lossless: boolean
+  quality: number | null
+  complexity: number
+  complexityAdjusted: boolean
+  status: SearchStatus | 'default'
+  attempts: number
+  maxAttempts: number
+  targetBytes: number | null
+  ms: number
+}
+
 export interface ErrorResult {
   type: 'error'
   id: number
@@ -47,4 +90,9 @@ export interface ErrorResult {
   oom: boolean
 }
 
-export type WorkerResponse = ProcessResult | PreviewResult | ErrorResult
+export type WorkerResponse =
+  | ProcessResult
+  | PreviewResult
+  | GenerateProgressResult
+  | GenerateDoneResult
+  | ErrorResult

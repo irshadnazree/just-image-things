@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@irshadnazree/just-things-ui/styles.css'
 import './index.css'
-import App from './App.tsx'
+import { Router } from './Router.tsx'
 import { installAgentApi } from './app/agent-api'
 
 const agentToken = new URLSearchParams(location.search).get('agent')
@@ -16,7 +16,7 @@ if (agentToken) {
   installAgentApi()
   createRoot(root).render(
     <StrictMode>
-      <App />
+      <Router />
     </StrictMode>,
   )
 }
