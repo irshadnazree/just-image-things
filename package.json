@@ -36,13 +36,16 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@cloudflare/oxlint-config": "^0.2.0",
     "@cloudflare/vite-plugin": "2.0.0-beta.v.8",
+    "@interfere/landmines": "^0.3.1",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "cf": "1.0.0-beta.26",
-    "oxlint": "^1.81.0",
+    "oxlint": "^1.95.0",
+    "tsrs": "7.1.0-beta.tsrs5",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",
     "vitest": "^5.0.5"
