@@ -1,39 +1,31 @@
 #!/usr/bin/env bun
-/**
- * Agent CLI: process a folder of images with the just-image-things web app, headlessly.
- *
- *   bun run agent <folder-or-files...> [options]     (see --help)
- *
- * The page does all image work, exactly as in the browser UI. This script only builds and
- * serves the site on 127.0.0.1, launches a Chromium-based browser at it, feeds it files and
- * writes what comes back.
- */
-import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { createReadStream, existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, type Stats } from 'node:fs'
+import { createReadStream, existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
+import type { Stats } from 'node:fs'
 import { lstat, mkdir, open, realpath, rename, rm } from 'node:fs/promises'
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { createServer } from 'node:http'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { AGENT_TOKEN_HEADER, type AgentEvent, type AgentJob, type AgentWriteReply } from '../src/agent/protocol.ts'
+import { AGENT_TOKEN_HEADER } from '../src/agent/protocol.ts'
+import type { AgentEvent, AgentJob, AgentWriteReply } from '../src/agent/protocol.ts'
 import { isJunkFile, isSupportedName } from '../src/lib/formats.ts'
 import type { ConflictPolicy } from '../src/lib/settings.ts'
-import { HELP, parseCli, UsageError, type CliOptions } from './options.ts'
+import { HELP, parseCli, UsageError } from './options.ts'
+import type { CliOptions } from './options.ts'
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-/** Keep in sync with AGENT_SITE_DIR in vite.config.ts. */
+const ROOT = resolve(import.meta.dirname, '..')
+// WARNING: keep in sync with AGENT_SITE_DIR in vite.config.ts.
 const SITE_DIR = join(ROOT, 'node_modules/.cache/just-image-things/agent-site')
 
-/** How long the page may go quiet before the run is treated as hung. */
 const STALL_MS = 60_000
 
 const log = (msg: string) => process.stderr.write(`${msg}\n`)
 
 class SetupError extends Error {}
-
-// ---------------------------------------------------------------- inputs
 
 interface InputFile {
   abs: string
@@ -44,28 +36,31 @@ interface InputFile {
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
-function walk(dir: string, prefix: string, skip: string, out: InputFile[]) {
+function walk(dir: string, prefix: string, skip: string, out: Array<InputFile>) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const abs = join(dir, entry.name)
-    if (abs === skip) continue
+    if (abs === skip) { continue }
     if (entry.isDirectory()) {
-      if (!entry.name.startsWith('.')) walk(abs, `${prefix}/${entry.name}`, skip, out)
+      if (!entry.name.startsWith('.')) { walk(abs, `${prefix}/${entry.name}`, skip, out) }
     } else if (entry.isFile() && isSupportedName(entry.name)) {
       out.push({ abs, relPath: `${prefix}/${entry.name}`, name: entry.name, size: statSync(abs).size })
     }
   }
 }
 
-/** Mirror the browser: a dropped folder's files are `folder/sub/a.jpg`, loose files are `a.jpg`. */
-function collectInputs(paths: string[], outDir: string): InputFile[] {
-  const files: InputFile[] = []
+function collectInputs(paths: Array<string>, outDir: string): Array<InputFile> {
+  const files: Array<InputFile> = []
   for (const p of paths) {
     const abs = resolve(p)
-    if (!existsSync(abs)) throw new UsageError(`No such file or folder: ${p}`)
+    if (!existsSync(abs)) { throw new UsageError(`No such file or folder: ${p}`) }
     const st = statSync(abs)
-    if (st.isDirectory()) walk(abs, basename(abs), outDir, files)
-    else if (isSupportedName(basename(abs))) files.push({ abs, relPath: basename(abs), name: basename(abs), size: st.size })
-    else if (!isJunkFile(basename(abs))) throw new UsageError(`Not a supported image: ${p}`)
+    if (st.isDirectory()) {
+      walk(abs, basename(abs), outDir, files)
+    } else if (isSupportedName(basename(abs))) {
+      files.push({ abs, relPath: basename(abs), name: basename(abs), size: st.size })
+    } else if (!isJunkFile(basename(abs))) {
+      throw new UsageError(`Not a supported image: ${p}`)
+    }
   }
   const seen = new Set<string>()
   return files
@@ -73,20 +68,18 @@ function collectInputs(paths: string[], outDir: string): InputFile[] {
     .sort((a, b) => collator.compare(a.relPath, b.relPath))
 }
 
-function defaultOutDir(paths: string[]): string {
+function defaultOutDir(paths: Array<string>): string {
   const first = resolve(paths[0])
-  if (paths.length === 1 && statSync(first).isDirectory()) return `${first}_processed`
+  if (paths.length === 1 && statSync(first).isDirectory()) { return `${first}_processed` }
   return join(dirname(first), 'images_processed')
 }
 
-// ---------------------------------------------------------------- build
-
 function newestMtime(path: string): number {
-  if (!existsSync(path)) return 0
+  if (!existsSync(path)) { return 0 }
   const st = statSync(path)
-  if (!st.isDirectory()) return st.mtimeMs
+  if (!st.isDirectory()) { return st.mtimeMs }
   let newest = st.mtimeMs
-  for (const entry of readdirSync(path)) newest = Math.max(newest, newestMtime(join(path, entry)))
+  for (const entry of readdirSync(path)) { newest = Math.max(newest, newestMtime(join(path, entry))) }
   return newest
 }
 
@@ -95,33 +88,31 @@ function ensureSite(force: boolean) {
   if (!force && existsSync(index)) {
     const sources = ['src', 'public', 'index.html', 'vite.config.ts', 'package.json', 'bun.lock']
     const newest = Math.max(...sources.map((s) => newestMtime(join(ROOT, s))))
-    if (newest <= statSync(index).mtimeMs) return
+    if (newest <= statSync(index).mtimeMs) { return }
   }
   log('Building the site for agent mode…')
   const vite = join(ROOT, 'node_modules/vite/bin/vite.js')
-  if (!existsSync(vite)) throw new SetupError('Vite is not installed. Run `bun install` in the just-image-things folder first.')
+  if (!existsSync(vite)) { throw new SetupError('Vite is not installed. Run `bun install` in the just-image-things folder first.') }
   const res = spawnSync(process.execPath, [vite, 'build', '--mode', 'agent', '--logLevel', 'error'], {
     cwd: ROOT,
     stdio: ['ignore', 'ignore', 'inherit'],
   })
-  if (res.status !== 0) throw new SetupError('Building the site failed (see errors above).')
+  if (res.status !== 0) { throw new SetupError('Building the site failed (see errors above).') }
 }
-
-// ---------------------------------------------------------------- browser
 
 function findBrowser(explicit?: string): string | null {
   const wanted = explicit ?? process.env.JIT_BROWSER ?? process.env.CHROME_PATH
   if (wanted) {
-    if (!existsSync(wanted)) throw new SetupError(`Browser not found at ${wanted}`)
+    if (!existsSync(wanted)) { throw new SetupError(`Browser not found at ${wanted}`) }
     return wanted
   }
-  const candidates: string[] = []
+  const candidates: Array<string> = []
   if (process.platform === 'darwin') {
     for (const app of ['Google Chrome', 'Chromium', 'Google Chrome Canary', 'Microsoft Edge', 'Brave Browser', 'Vivaldi']) {
       candidates.push(`/Applications/${app}.app/Contents/MacOS/${app}`, join(process.env.HOME ?? '', `Applications/${app}.app/Contents/MacOS/${app}`))
     }
   } else if (process.platform === 'win32') {
-    const roots = [process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)'], process.env.LOCALAPPDATA].filter(Boolean) as string[]
+    const roots = [process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)'], process.env.LOCALAPPDATA].filter(Boolean) as Array<string>
     for (const root of roots) {
       candidates.push(
         join(root, 'Google/Chrome/Application/chrome.exe'),
@@ -133,10 +124,9 @@ function findBrowser(explicit?: string): string | null {
   } else {
     for (const bin of ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge', 'brave-browser']) {
       const which = spawnSync('which', [bin], { encoding: 'utf8' })
-      if (which.status === 0 && which.stdout.trim()) candidates.push(which.stdout.trim())
+      if (which.status === 0 && which.stdout.trim()) { candidates.push(which.stdout.trim()) }
     }
   }
-  // Playwright's bundled Chromium, if it has been installed.
   const pwCache =
     process.platform === 'darwin'
       ? join(process.env.HOME ?? '', 'Library/Caches/ms-playwright')
@@ -176,14 +166,12 @@ function launchBrowser(bin: string, url: string, headed: boolean): { proc: Child
   return {
     proc,
     cleanup: () => {
-      if (proc.exitCode === null) proc.kill()
-      // Chrome may still hold files for a moment after being killed.
+      if (proc.exitCode === null) { proc.kill() }
+      // WARNING: Chrome may still hold files for a moment after being killed.
       setTimeout(() => rmSync(profile, { recursive: true, force: true }), 500).unref()
     },
   }
 }
-
-// ---------------------------------------------------------------- server
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -198,7 +186,7 @@ const MIME: Record<string, string> = {
   '.txt': 'text/plain; charset=utf-8',
 }
 
-/** Input files are sent with their real type: the page needs image/svg+xml to render SVGs. */
+// WARNING: the page needs image/svg+xml to render SVGs, so inputs are sent with their real type.
 const IMAGE_MIME: Record<string, string> = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
@@ -229,18 +217,15 @@ function withSuffix(name: string, n: number) {
 
 const fileId = (st: Stats) => `${st.dev}:${st.ino}`
 
-/**
- * Create `dir` under the output root one level at a time, refusing anything that isn't a
- * plain folder. Following a symlinked subfolder could put files outside the output.
- */
+// WARNING: following a symlinked subfolder could put files outside the output, so refuse anything that isn't a plain folder.
 async function ensureOutputDir(outRoot: string, dir: string): Promise<string> {
   let current = outRoot
   for (const part of relative(outRoot, dir).split(sep).filter(Boolean)) {
     current = join(current, part)
     try {
       await mkdir(current)
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') { throw error }
     }
     if (!(await lstat(current)).isDirectory()) {
       throw new Error(`Refusing to write through ${relative(outRoot, current)}: not a plain folder (symlinks are not followed)`)
@@ -249,10 +234,6 @@ async function ensureOutputDir(outRoot: string, dir: string): Promise<string> {
   return current
 }
 
-/**
- * Write without clobbering unless asked to, mirroring the browser's folder output.
- * `outRoot` must already be a real path. Originals (by device and inode) are never replaced.
- */
 async function writeOutput(
   outRoot: string,
   relPath: string,
@@ -261,7 +242,7 @@ async function writeOutput(
   inputIds: Set<string>,
 ): Promise<AgentWriteReply> {
   const target = resolve(outRoot, relPath)
-  if (!target.startsWith(outRoot + sep)) throw new Error(`Refusing to write outside the output folder: ${relPath}`)
+  if (!target.startsWith(outRoot + sep)) { throw new Error(`Refusing to write outside the output folder: ${relPath}`) }
   const dir = await ensureOutputDir(outRoot, dirname(target))
   const rel = (p: string) => relative(outRoot, p).split(sep).join('/')
 
@@ -270,8 +251,7 @@ async function writeOutput(
     if (existing && inputIds.has(fileId(existing))) {
       throw new Error(`Refusing to overwrite the original ${rel(target)}. Use an --out folder that is not the input folder.`)
     }
-    // Write to a temp file first so a crash never leaves a half-written image.
-    // rename() replaces the directory entry itself and never follows a symlink.
+    // WARNING: write to a temp file, then rename(), which replaces the entry itself and never follows a symlink.
     const tmp = join(dir, `.${basename(target)}.${randomBytes(4).toString('hex')}.tmp`)
     const fh = await open(tmp, 'wx')
     try {
@@ -285,27 +265,27 @@ async function writeOutput(
   for (let n = 1; ; n++) {
     const candidate = n === 1 ? target : join(dir, withSuffix(basename(target), n))
     try {
-      // 'wx' fails on any existing entry, including symlinks, so nothing is ever replaced.
+      // WARNING: 'wx' fails on any existing entry, including symlinks, so nothing is ever replaced.
       const fh = await open(candidate, 'wx')
       try {
         await fh.writeFile(data)
-      } catch (err) {
+      } catch (error) {
         await fh.close()
         await rm(candidate, { force: true })
-        throw err
+        throw error
       }
       await fh.close()
       return { path: rel(candidate), skipped: false }
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
-      if (conflict === 'skip') return { path: rel(target), skipped: true }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') { throw error }
+      if (conflict === 'skip') { return { path: rel(target), skipped: true }}
     }
   }
 }
 
 function readBody(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolveBody, reject) => {
-    const chunks: Buffer[] = []
+    const chunks: Array<Buffer> = []
     req.on('data', (c: Buffer) => chunks.push(c))
     req.on('end', () => resolveBody(Buffer.concat(chunks)))
     req.on('error', reject)
@@ -314,12 +294,10 @@ function readBody(req: IncomingMessage): Promise<Buffer> {
 
 function serveStatic(pathname: string, res: ServerResponse) {
   let file = resolve(SITE_DIR, `.${decodeURIComponent(pathname)}`)
-  if (!file.startsWith(SITE_DIR + sep) || !existsSync(file) || statSync(file).isDirectory()) file = join(SITE_DIR, 'index.html')
+  if (!file.startsWith(SITE_DIR + sep) || !existsSync(file) || statSync(file).isDirectory()) { file = join(SITE_DIR, 'index.html') }
   res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream', 'cache-control': 'no-store' })
   createReadStream(file).pipe(res)
 }
-
-// ---------------------------------------------------------------- report
 
 interface FileReport {
   input: string
@@ -334,29 +312,28 @@ interface FileReport {
 }
 
 function fmtBytes(n: number): string {
-  if (n < 1024) return `${n} B`
-  if (n < 1024 ** 2) return `${(n / 1024).toFixed(0)} KB`
-  if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`
+  if (n < 1024) { return `${n} B` }
+  if (n < 1024 ** 2) { return `${(n / 1024).toFixed(0)} KB` }
+  if (n < 1024 ** 3) { return `${(n / 1024 ** 2).toFixed(1)} MB` }
   return `${(n / 1024 ** 3).toFixed(2)} GB`
 }
 
-// ---------------------------------------------------------------- main
-
 async function run(opts: CliOptions): Promise<number> {
   const missing = opts.inputs.find((p) => !existsSync(resolve(p)))
-  if (missing) throw new UsageError(`No such file or folder: ${missing}`)
+  if (missing) { throw new UsageError(`No such file or folder: ${missing}`) }
   const outDir = resolve(opts.out ?? defaultOutDir(opts.inputs))
   const files = collectInputs(opts.inputs, outDir)
-  if (!files.length) throw new UsageError(`No supported images found in ${opts.inputs.join(', ')}`)
+  if (!files.length) { throw new UsageError(`No supported images found in ${opts.inputs.join(', ')}`) }
   const { settings } = opts
   const totalIn = files.reduce((sum, f) => sum + f.size, 0)
 
   if (opts.dryRun) {
     const plan = { output: outDir, files: files.map((f) => ({ input: f.abs, relPath: f.relPath, bytes: f.size })), settings }
-    if (opts.json) process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`)
-    else {
+    if (opts.json) {
+      process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`)
+    } else {
       log(`Would process ${files.length} image(s), ${fmtBytes(totalIn)}, into ${outDir}`)
-      for (const f of files) log(`  ${f.relPath}`)
+      for (const f of files) { log(`  ${f.relPath}`) }
       log(`Settings: ${JSON.stringify(settings)}`)
     }
     return 0
@@ -374,9 +351,9 @@ async function run(opts: CliOptions): Promise<number> {
   try {
     await mkdir(outDir, { recursive: true })
     outRoot = await realpath(outDir)
-    if (!statSync(outRoot).isDirectory()) throw new Error('not a folder')
-  } catch (err) {
-    throw new SetupError(`Can't use ${outDir} as the output folder: ${err instanceof Error ? err.message : err}`)
+    if (!statSync(outRoot).isDirectory()) { throw new Error('not a folder') }
+  } catch (error) {
+    throw new SetupError(`Can't use ${outDir} as the output folder: ${error instanceof Error ? error.message : error}`)
   }
   const inputIds = new Set<string>()
   for (const f of files) {
@@ -386,13 +363,15 @@ async function run(opts: CliOptions): Promise<number> {
 
   const token = randomBytes(24).toString('hex')
   const job: AgentJob = { settings, files: files.map((f) => ({ relPath: f.relPath, name: f.name, size: f.size })) }
-  const reports: FileReport[] = files.map((f) => ({ input: f.abs, status: 'pending', inBytes: f.size }))
+  const reports: Array<FileReport> = files.map((f) => ({ input: f.abs, status: 'pending', inBytes: f.size }))
   const started = Date.now()
   let finished = 0
   let workers = 0
 
   let settle!: (outcome: { ok: true } | { ok: false; message: string }) => void
-  const outcome = new Promise<{ ok: true } | { ok: false; message: string }>((r) => (settle = r))
+  const outcome = new Promise<{ ok: true } | { ok: false; message: string }>((r) => {
+    settle = r
+  })
   let jobFetched = false
   let lastEventAt = Date.now()
 
@@ -443,10 +422,10 @@ async function run(opts: CliOptions): Promise<number> {
     }
   }
 
-  const server = createServer(async (req, res) => {
+  const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     try {
       const url = new URL(req.url ?? '/', 'http://127.0.0.1')
-      if (!url.pathname.startsWith('/__agent/')) return serveStatic(url.pathname, res)
+      if (!url.pathname.startsWith('/__agent/')) { return serveStatic(url.pathname, res) }
       if (req.headers[AGENT_TOKEN_HEADER] !== token) {
         res.writeHead(403).end('Bad token')
         return
@@ -457,7 +436,7 @@ async function run(opts: CliOptions): Promise<number> {
         res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(job))
       } else if (route.startsWith('file/') && req.method === 'GET') {
         const file = files[Number(route.slice(5))]
-        if (!file) return void res.writeHead(404).end('No such file')
+        if (!file) { return void res.writeHead(404).end('No such file') }
         res.writeHead(200, {
           'content-type': IMAGE_MIME[extname(file.name).toLowerCase()] ?? 'application/octet-stream',
           'content-length': file.size,
@@ -478,26 +457,31 @@ async function run(opts: CliOptions): Promise<number> {
       } else {
         res.writeHead(404).end('Unknown route')
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      if (!res.headersSent) res.writeHead(500).end(message)
-      else res.destroy()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (!res.headersSent) {
+        res.writeHead(500).end(message)
+      } else {
+        res.destroy()
+      }
     }
+  }
+  const server = createServer((req, res) => void handleRequest(req, res))
+  await new Promise<void>((r) => {
+    server.listen(0, '127.0.0.1', r)
   })
-  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
   const { port } = server.address() as AddressInfo
 
   let browser: ReturnType<typeof launchBrowser> | undefined
   const onSignal = () => settle({ ok: false, message: 'Interrupted.' })
   const loadTimer = setTimeout(() => {
-    if (!jobFetched) settle({ ok: false, message: 'The browser did not load the page within 60 seconds.' })
+    if (!jobFetched) { settle({ ok: false, message: 'The browser did not load the page within 60 seconds.' }) }
   }, 60_000)
-  // The page sends a heartbeat every few seconds; silence means the renderer hung or crashed.
   const watchdog = setInterval(() => {
     if (jobFetched && Date.now() - lastEventAt > STALL_MS) {
       settle({ ok: false, message: `The page stopped responding (nothing heard for ${STALL_MS / 1000}s).` })
     }
-  }, 5_000)
+  }, 5000)
   let result: { ok: true } | { ok: false; message: string }
   try {
     process.once('SIGINT', onSignal)
@@ -562,8 +546,8 @@ async function main() {
   let opts: CliOptions
   try {
     opts = parseCli(process.argv.slice(2), (path) => JSON.parse(readFileSync(resolve(path), 'utf8')))
-  } catch (err) {
-    log(err instanceof UsageError || err instanceof SyntaxError ? `Error: ${err.message}` : String(err))
+  } catch (error) {
+    log(error instanceof UsageError || error instanceof SyntaxError ? `Error: ${error.message}` : String(error))
     return 2
   }
   if (opts.help) {
@@ -572,12 +556,12 @@ async function main() {
   }
   try {
     return await run(opts)
-  } catch (err) {
-    if (err instanceof UsageError || err instanceof SetupError) {
-      log(`Error: ${err.message}`)
+  } catch (error) {
+    if (error instanceof UsageError || error instanceof SetupError) {
+      log(`Error: ${error.message}`)
       return 2
     }
-    throw err
+    throw error
   }
 }
 

@@ -1,4 +1,3 @@
-// The "Quite OK Image" format: https://qoiformat.org/qoi-specification.pdf
 import type { RGBAImage } from './bmp'
 
 const OP_INDEX = 0x00
@@ -16,11 +15,11 @@ export function encodeQoi(img: RGBAImage, channels: 3 | 4 = 4): Uint8Array {
   const pixels = width * height
   const out = new Uint8Array(14 + pixels * 5 + 8)
   const v = new DataView(out.buffer)
-  out.set([0x71, 0x6f, 0x69, 0x66]) // 'qoif'
+  out.set([0x71, 0x6f, 0x69, 0x66])
   v.setUint32(4, width)
   v.setUint32(8, height)
   out[12] = channels
-  out[13] = 0 // sRGB with linear alpha
+  out[13] = 0
 
   const index = new Uint8Array(64 * 4)
   let p = 14
@@ -94,7 +93,7 @@ export function encodeQoi(img: RGBAImage, channels: 3 | 4 = 4): Uint8Array {
 
 export function decodeQoi(bytes: Uint8Array): RGBAImage {
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-  if (v.getUint32(0) !== 0x716f6966) throw new Error('Not a QOI file')
+  if (v.getUint32(0) !== 0x71_6f_69_66) { throw new Error('Not a QOI file') }
   const width = v.getUint32(4)
   const height = v.getUint32(8)
   const pixels = width * height
@@ -108,7 +107,7 @@ export function decodeQoi(bytes: Uint8Array): RGBAImage {
   const end = bytes.length - 8
 
   for (let i = 0; i < pixels; ) {
-    if (p >= end) throw new Error('Truncated QOI file')
+    if (p >= end) { throw new Error('Truncated QOI file') }
     const op = bytes[p++]
     let run = 1
     if (op === OP_RGB) {

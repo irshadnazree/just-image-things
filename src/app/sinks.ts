@@ -4,6 +4,7 @@ import type { ConflictPolicy } from '../lib/settings'
 export type WriteOutcome = { path: string; skipped: boolean }
 
 export interface Sink {
+  readonly kind: 'folder' | 'zip' | 'files' | 'agent'
   write(path: string, data: ArrayBuffer): Promise<WriteOutcome>
   finish(): Promise<void>
   abort(): void
@@ -16,7 +17,7 @@ type PickerWindow = Window & {
   showDirectoryPicker(opts?: { mode?: 'read' | 'readwrite'; id?: string }): Promise<FileSystemDirectoryHandle>
   showSaveFilePicker(opts?: {
     suggestedName?: string
-    types?: { description: string; accept: Record<string, string[]> }[]
+    types?: Array<{ description: string; accept: Record<string, Array<string>> }>
   }): Promise<FileSystemFileHandle>
 }
 
@@ -29,13 +30,13 @@ export async function ensureWritable(handle: FileSystemDirectoryHandle): Promise
     queryPermission(o: { mode: string }): Promise<PermissionState>
     requestPermission(o: { mode: string }): Promise<PermissionState>
   }
-  if ((await h.queryPermission({ mode: 'readwrite' })) === 'granted') return true
+  if ((await h.queryPermission({ mode: 'readwrite' })) === 'granted') { return true }
   return (await h.requestPermission({ mode: 'readwrite' })) === 'granted'
 }
 
 function splitPath(path: string) {
   const parts = path.split('/')
-  const name = parts.pop()!
+  const name = parts.pop() ?? ''
   return { dirs: parts, name }
 }
 
@@ -46,6 +47,7 @@ function withSuffix(name: string, n: number) {
 
 /** Writes straight into a folder on disk (Chromium's File System Access API). */
 export class FolderSink implements Sink {
+  readonly kind = 'folder'
   private dirs = new Map<string, Promise<FileSystemDirectoryHandle>>()
   private root: FileSystemDirectoryHandle
   private conflict: ConflictPolicy
@@ -55,13 +57,14 @@ export class FolderSink implements Sink {
     this.conflict = conflict
   }
 
-  private dir(parts: string[]): Promise<FileSystemDirectoryHandle> {
+  private dir(parts: Array<string>): Promise<FileSystemDirectoryHandle> {
     const key = parts.join('/')
     let handle = this.dirs.get(key)
     if (!handle) {
-      handle = parts.length
-        ? this.dir(parts.slice(0, -1)).then((parent) => parent.getDirectoryHandle(parts[parts.length - 1], { create: true }))
-        : Promise.resolve(this.root)
+      const last = parts.at(-1)
+      handle = last === undefined
+        ? Promise.resolve(this.root)
+        : this.dir(parts.slice(0, -1)).then((parent) => parent.getDirectoryHandle(last, { create: true }))
       this.dirs.set(key, handle)
     }
     return handle
@@ -73,7 +76,7 @@ export class FolderSink implements Sink {
     let finalName = name
     if (this.conflict !== 'overwrite') {
       for (let n = 2; await exists(dir, finalName); n++) {
-        if (this.conflict === 'skip') return { path, skipped: true }
+        if (this.conflict === 'skip') { return { path, skipped: true }}
         finalName = withSuffix(name, n)
       }
     }
@@ -97,9 +100,8 @@ async function exists(dir: FileSystemDirectoryHandle, name: string): Promise<boo
   }
 }
 
-/** Push-based async iterable feeding the zip stream. */
 class AsyncQueue<T> implements AsyncIterable<T> {
-  private items: T[] = []
+  private items: Array<T> = []
   private waiting: ((r: IteratorResult<T>) => void) | null = null
   private closed = false
 
@@ -107,7 +109,9 @@ class AsyncQueue<T> implements AsyncIterable<T> {
     if (this.waiting) {
       this.waiting({ value: item, done: false })
       this.waiting = null
-    } else this.items.push(item)
+    } else {
+      this.items.push(item)
+    }
   }
 
   close() {
@@ -119,9 +123,12 @@ class AsyncQueue<T> implements AsyncIterable<T> {
   [Symbol.asyncIterator](): AsyncIterator<T> {
     return {
       next: () => {
-        if (this.items.length) return Promise.resolve({ value: this.items.shift()!, done: false })
-        if (this.closed) return Promise.resolve({ value: undefined, done: true })
-        return new Promise((resolve) => (this.waiting = resolve))
+        const item = this.items.shift()
+        if (item !== undefined) { return Promise.resolve({ value: item, done: false }) }
+        if (this.closed) { return Promise.resolve({ value: undefined, done: true }) }
+        return new Promise((resolve) => {
+          this.waiting = resolve
+        })
       },
     }
   }
@@ -132,19 +139,21 @@ class AsyncQueue<T> implements AsyncIterable<T> {
  * elsewhere the browser assembles a Blob, which it may spill to disk for large archives.
  */
 export class ZipSink implements Sink {
+  readonly kind = 'zip'
   private queue = new AsyncQueue<{ name: string; input: ArrayBuffer; lastModified: Date }>()
   private done: Promise<void>
   private abortController = new AbortController()
 
   private constructor(fileName: string, target: FileSystemFileHandle | null) {
     const response = downloadZip(this.queue, { buffersAreUTF8: true })
-    if (target) {
+    const body = response.body
+    if (target && body) {
       this.done = target
         .createWritable()
-        .then((w) => response.body!.pipeTo(w, { signal: this.abortController.signal }))
+        .then((w) => body.pipeTo(w, { signal: this.abortController.signal }))
     } else {
       this.done = response.blob().then((blob) => {
-        if (!this.abortController.signal.aborted) triggerDownload(blob, fileName)
+        if (!this.abortController.signal.aborted) { triggerDownload(blob, fileName) }
       })
     }
   }
@@ -193,14 +202,17 @@ export function triggerDownload(blob: Blob, name: string) {
 
 /** One browser download per file. Fine for a handful, the browser may ask about the rest. */
 export class FilesSink implements Sink {
+  readonly kind = 'files'
   private chain = Promise.resolve()
 
   async write(path: string, data: ArrayBuffer): Promise<WriteOutcome> {
-    const name = path.split('/').pop()!
-    // Space downloads out; browsers silently drop bursts.
+    const name = path.split('/').at(-1) ?? path
+    // WARNING: space downloads out; browsers silently drop bursts.
     this.chain = this.chain.then(async () => {
       triggerDownload(new Blob([data]), name)
-      await new Promise((r) => setTimeout(r, 250))
+      await new Promise((r) => {
+        setTimeout(r, 250)
+      })
     })
     await this.chain
     return { path: name, skipped: false }

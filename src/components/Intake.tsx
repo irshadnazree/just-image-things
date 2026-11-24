@@ -10,7 +10,7 @@ export function AddButtons({ compact, disabled }: { compact?: boolean; disabled?
   const folderInput = useRef<HTMLInputElement>(null)
 
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) addFiles(filesFromList(e.target.files))
+    if (e.target.files) { addFiles(filesFromList(e.target.files)) }
     e.target.value = ''
   }
 
@@ -54,33 +54,33 @@ export function DropOverlay() {
   useEffect(() => {
     const hasFiles = (e: DragEvent) => e.dataTransfer?.types.includes('Files')
     const enter = (e: DragEvent) => {
-      if (!hasFiles(e)) return
+      if (!hasFiles(e)) { return }
       e.preventDefault()
       depth.current++
       setActive(true)
     }
     const over = (e: DragEvent) => {
-      if (!hasFiles(e)) return
+      if (!hasFiles(e)) { return }
       e.preventDefault()
-      e.dataTransfer!.dropEffect = running ? 'none' : 'copy'
+      if (e.dataTransfer) { e.dataTransfer.dropEffect = running ? 'none' : 'copy' }
     }
     const leave = () => {
       depth.current = Math.max(0, depth.current - 1)
-      if (!depth.current) setActive(false)
+      if (!depth.current) { setActive(false) }
     }
-    const drop = async (e: DragEvent) => {
-      if (!hasFiles(e)) return
+    const drop = (e: DragEvent) => {
+      if (!hasFiles(e)) { return }
       e.preventDefault()
       depth.current = 0
       setActive(false)
-      if (!running && e.dataTransfer) addFiles(await filesFromDataTransfer(e.dataTransfer))
+      if (!running && e.dataTransfer) { void filesFromDataTransfer(e.dataTransfer).then(addFiles) }
     }
     const paste = (e: ClipboardEvent) => {
       const target = e.target as HTMLElement | null
-      if (running || target?.closest('input, textarea')) return
+      if (running || target?.closest('input, textarea')) { return }
       const files = e.clipboardData?.files
-      if (!files?.length) return
-      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+      if (!files?.length) { return }
+      const stamp = new Date().toISOString().replaceAll(/[:.]/g, '-').slice(0, 19)
       addFiles(
         filesFromList(
           Array.from(files).map((f) =>
@@ -103,7 +103,7 @@ export function DropOverlay() {
     }
   }, [addFiles, running])
 
-  if (!active) return null
+  if (!active) { return null }
   return (
     <div className="drop-overlay" aria-hidden>
       <div className="drop-overlay-inner">{running ? 'Wait for the current run to finish' : 'Drop images or folders'}</div>

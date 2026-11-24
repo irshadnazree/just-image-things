@@ -3,15 +3,16 @@ import { useMemo, useRef, useState } from 'react'
 import { useStore } from '../app/store'
 import { autoWorkerCount } from '../app/pool'
 import { supportsFolderOutput } from '../app/sinks'
-import { FORMAT_BY_ID, type EncodableFormat, type LossyFormat } from '../lib/formats'
+import { FORMAT_BY_ID } from '../lib/formats'
+import type { EncodableFormat, LossyFormat } from '../lib/formats'
 import { NAME_TOKENS, renderName } from '../lib/naming'
-import { BUILTIN_PRESETS, EFFORT_RANGE, ICO_SIZES, type ResizeMode, type Settings } from '../lib/settings'
+import { BUILTIN_PRESETS, EFFORT_RANGE, ICO_SIZES } from '../lib/settings'
+import type { ResizeMode, Settings } from '../lib/settings'
 import { Field, NumberInput, Section, Segmented, Slider, Toggle } from './controls'
 
-const LOSSY: LossyFormat[] = ['jpeg', 'webp', 'avif', 'jxl']
-/** Most-used first; "same as input" sits last and spans the leftover cells. */
-const FORMAT_ORDER: (EncodableFormat | 'original')[] = ['webp', 'avif', 'jpeg', 'png', 'jxl', 'gif', 'tiff', 'bmp', 'ico', 'qoi', 'original']
-const isLossy = (f: Settings['format']): f is LossyFormat => (LOSSY as string[]).includes(f)
+const LOSSY: Array<LossyFormat> = ['jpeg', 'webp', 'avif', 'jxl']
+const FORMAT_ORDER: Array<EncodableFormat | 'original'> = ['webp', 'avif', 'jpeg', 'png', 'jxl', 'gif', 'tiff', 'bmp', 'ico', 'qoi', 'original']
+const isLossy = (f: Settings['format']): f is LossyFormat => (LOSSY as Array<string>).includes(f)
 const hasEffort = (f: Settings['format']): f is keyof Settings['effort'] => f in EFFORT_RANGE
 
 function PresetBar() {
@@ -31,7 +32,7 @@ function PresetBar() {
         onChange={(e) => {
           setValue(e.target.value)
           const preset = all.find((p) => p.id === e.target.value)
-          if (preset) applyPreset(preset)
+          if (preset) { applyPreset(preset) }
         }}
       >
         <option value="">Presets…</option>
@@ -67,7 +68,7 @@ function PresetBar() {
           variant="ghost"
           onClick={() => {
             const name = prompt('Name this preset')
-            if (name?.trim()) savePreset(name.trim())
+            if (name?.trim()) { savePreset(name.trim()) }
           }}
         >
           Save preset
@@ -159,8 +160,11 @@ function FormatSection() {
             value={f === 'png' ? s.png.colors : s.gif.colors}
             onChange={(e) =>
               update((d) => {
-                if (f === 'png') d.png.colors = Number(e.target.value)
-                else d.gif.colors = Number(e.target.value)
+                if (f === 'png') {
+                  d.png.colors = Number(e.target.value)
+                } else {
+                  d.gif.colors = Number(e.target.value)
+                }
               })
             }
           >
@@ -187,7 +191,7 @@ function FormatSection() {
                   onClick={() =>
                     update((d) => {
                       d.ico.sizes = on ? d.ico.sizes.filter((x) => x !== size) : [...d.ico.sizes, size].sort((a, b) => a - b)
-                      if (!d.ico.sizes.length) d.ico.sizes = [size]
+                      if (!d.ico.sizes.length) { d.ico.sizes = [size] }
                     })
                   }
                 >
@@ -202,7 +206,7 @@ function FormatSection() {
   )
 }
 
-const RESIZE_MODES: { value: ResizeMode; label: string }[] = [
+const RESIZE_MODES: Array<{ value: ResizeMode; label: string }> = [
   { value: 'none', label: 'Keep original size' },
   { value: 'longEdge', label: 'Longest edge' },
   { value: 'maxWidth', label: 'Max width' },
@@ -272,6 +276,8 @@ function ResizeSection() {
   )
 }
 
+const EXAMPLE_DATE = new Date()
+
 function RenameSection() {
   const rename = useStore((st) => st.settings.rename)
   const format = useStore((st) => st.settings.format)
@@ -281,14 +287,14 @@ function RenameSection() {
 
   const example = useMemo(() => {
     const original = sample?.file.name ?? 'IMG_0042.HEIC'
-    const ext = format === 'original' ? original.split('.').pop()!.toLowerCase() : FORMAT_BY_ID[format].ext
+    const ext = format === 'original' ? (original.split('.').at(-1) ?? '').toLowerCase() : FORMAT_BY_ID[format].ext
     const name = renderName(rename.template, {
       original,
       n: rename.startAt,
       width: 2048,
       height: 1536,
       format: ext,
-      date: new Date(),
+      date: EXAMPLE_DATE,
     })
     return { original, result: `${name}.${ext}` }
   }, [sample, rename, format])
@@ -399,7 +405,7 @@ export function DestinationPicker() {
           <span className={folder ? undefined : 'muted'}>
             {folder ? `Into “${folder.name}”` : 'Asks when you convert'}
           </span>
-          <Button size="sm" variant="ghost" onClick={chooseFolder}>
+          <Button size="sm" variant="ghost" onClick={() => void chooseFolder()}>
             {folder ? 'Change' : 'Choose now'}
           </Button>
         </div>

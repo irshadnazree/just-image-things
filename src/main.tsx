@@ -5,14 +5,16 @@ import './index.css'
 import App from './App.tsx'
 import { installAgentApi } from './app/agent-api'
 
-// `bun run agent` opens the page with ?agent=<token> and drives it over a local server.
 const agentToken = new URLSearchParams(location.search).get('agent')
+const root = document.getElementById('root')
+if (!root) { throw new Error('Missing #root element') }
 
 if (agentToken) {
-  void import('./agent/runner').then((m) => m.runAgent(agentToken, document.getElementById('root')!))
+  const { runAgent } = await import('./agent/runner')
+  await runAgent(agentToken, root)
 } else {
   installAgentApi()
-  createRoot(document.getElementById('root')!).render(
+  createRoot(root).render(
     <StrictMode>
       <App />
     </StrictMode>,

@@ -23,7 +23,7 @@ export function autoWorkerCount(): number {
   const cores = navigator.hardwareConcurrency || 4
   const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory
   let count = Math.max(1, cores - 1)
-  if (memory) count = Math.min(count, Math.max(1, Math.floor(memory * 1.5)))
+  if (memory) { count = Math.min(count, Math.max(1, Math.floor(memory * 1.5))) }
   return Math.min(count, 16)
 }
 
@@ -32,9 +32,9 @@ export function autoWorkerCount(): number {
  * shrinks by one, so huge batches settle at whatever the machine can sustain.
  */
 export class WorkerPool {
-  private idle: Worker[] = []
+  private idle: Array<Worker> = []
   private busy = new Map<Worker, Job>()
-  private queue: Job[] = []
+  private queue: Array<Job> = []
   limit: number
   onLimitChange?: (limit: number) => void
 
@@ -51,7 +51,7 @@ export class WorkerPool {
 
   /** Reject everything queued or running and stop the workers mid-encode. */
   cancelAll() {
-    for (const job of this.queue) job.reject(new CancelledError())
+    for (const job of this.queue) { job.reject(new CancelledError()) }
     this.queue = []
     for (const [worker, job] of this.busy) {
       worker.terminate()
@@ -62,13 +62,14 @@ export class WorkerPool {
 
   dispose() {
     this.cancelAll()
-    for (const w of this.idle) w.terminate()
+    for (const w of this.idle) { w.terminate() }
     this.idle = []
   }
 
   private pump() {
-    while (this.queue.length && this.busy.size < this.limit) {
-      const job = this.queue.shift()!
+    while (this.busy.size < this.limit) {
+      const job = this.queue.shift()
+      if (!job) { break }
       const worker = this.idle.pop() ?? this.spawn()
       this.busy.set(worker, job)
       worker.postMessage(job.msg)
@@ -87,20 +88,26 @@ export class WorkerPool {
 
   private handleMessage(worker: Worker, data: WorkerResponse) {
     const job = this.busy.get(worker)
-    if (!job) return
+    if (!job) { return }
     if (data.type === 'error' && data.oom) {
       this.handleCrash(worker, data.message)
       return
     }
     this.busy.delete(worker)
-    if (data.type === 'done') job.resolve(data)
-    else if (data.type === 'error') job.reject(new Error(data.message))
-    if (this.idle.length + this.busy.size >= this.limit) worker.terminate()
-    else this.idle.push(worker)
+    if (data.type === 'done') {
+      job.resolve(data)
+    } else if (data.type === 'error') {
+      job.reject(new Error(data.message))
+    }
+    if (this.idle.length + this.busy.size >= this.limit) {
+      worker.terminate()
+    } else {
+      this.idle.push(worker)
+    }
     this.pump()
   }
 
-  /** WASM memory is unusable after an OOM, so the worker is replaced rather than reused. */
+  // WARNING: WASM memory is unusable after an OOM, so replace the worker rather than reuse it.
   private handleCrash(worker: Worker, message: string) {
     const job = this.busy.get(worker)
     this.busy.delete(worker)

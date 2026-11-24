@@ -20,15 +20,17 @@ export async function rasterizeSvg(file: Blob, settings: Settings): Promise<Blob
       height = Math.round(height * scale)
     } else {
       const size = targetSize(width, height, { ...settings.resize, allowUpscale: true })
-      if (size) ({ width, height } = size)
+      if (size) { ({ width, height } = size) }
     }
     const canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = height
-    canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
-    return await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not render SVG'))), 'image/png'),
-    )
+    const ctx = canvas.getContext('2d')
+    if (!ctx) { throw new Error('Could not render SVG: no 2D canvas') }
+    ctx.drawImage(img, 0, 0, width, height)
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not render SVG'))), 'image/png')
+    })
   } finally {
     URL.revokeObjectURL(url)
   }

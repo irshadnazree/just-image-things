@@ -9,15 +9,14 @@ import type { ErrorResult, PreviewResult, ProcessResult, WorkerRequest } from '.
 
 const OOM_PATTERN = /memory|allocation|out of bounds|aborted\(|array buffer|invalid array length/i
 
-/** The original is smaller than anything we produced; reuse it, but honour the metadata settings for JPEG. */
 function keepOriginal(bytes: Uint8Array, isJpeg: boolean, metadata: { keepExif: boolean; stripGps: boolean }): ArrayBuffer {
-  if (!isJpeg) return bytes.buffer as ArrayBuffer
+  if (!isJpeg) { return bytes.buffer as ArrayBuffer }
   let exif: Uint8Array | null = null
   if (metadata.keepExif) {
     exif = extractExifSegment(bytes)
-    if (exif) patchExifSegment(exif, { stripGps: metadata.stripGps, reencoded: false })
+    if (exif) { patchExifSegment(exif, { stripGps: metadata.stripGps, reencoded: false }) }
   }
-  return stripJpegMetadata(bytes, exif).slice().buffer as ArrayBuffer
+  return stripJpegMetadata(bytes, exif).slice().buffer
 }
 
 async function run(req: WorkerRequest) {
@@ -26,7 +25,7 @@ async function run(req: WorkerRequest) {
   const buffer = await req.file.arrayBuffer()
   const bytes = new Uint8Array(buffer)
   const inputFormat = sniffFormat(bytes, req.name)
-  if (!inputFormat) throw new Error('Unrecognised image format')
+  if (!inputFormat) { throw new Error('Unrecognised image format') }
 
   const decodeSource = req.raster ?? req.file
   const decodeBuffer = req.raster ? await req.raster.arrayBuffer() : buffer
@@ -36,10 +35,9 @@ async function run(req: WorkerRequest) {
   const before = req.type === 'preview' ? await createImageBitmap(img) : null
 
   const format = resolveOutputFormat(settings.format, inputFormat, hasAlpha(img))
-  // SVG rasters are already rendered at the final size, straight from the vectors.
   if (format !== 'ico' && !req.raster) {
     const size = targetSize(img.width, img.height, settings.resize)
-    if (size) img = await resizeImage(img, size.width, size.height, settings.resize.method)
+    if (size) { img = await resizeImage(img, size.width, size.height, settings.resize.method) }
   }
 
   let out = await encodeImage(format, img, settings)
@@ -58,7 +56,7 @@ async function run(req: WorkerRequest) {
   }
 
   const unchangedSize = img.width === sourceWidth && img.height === sourceHeight
-  // A rotated JPEG can't lose its EXIF without turning sideways, so it must be re-encoded.
+  // WARNING: a rotated JPEG can't drop its EXIF without turning sideways, so it must be re-encoded.
   const rotatedJpeg =
     inputFormat === 'jpeg' && !settings.metadata.keepExif && readOrientation(extractExifSegment(bytes)) !== 1
   const keptOriginal =
@@ -82,7 +80,7 @@ async function run(req: WorkerRequest) {
   }
 
   if (req.type === 'preview') {
-    // Show what the encoder produced, decoded back, so lossy artefacts are visible.
+    if (!before) { throw new Error('Preview is missing its source bitmap') }
     let after: ImageBitmap
     try {
       const decoded = await decodeImage(format, new Blob([out as Uint8Array<ArrayBuffer>]), out.buffer as ArrayBuffer)
@@ -90,7 +88,7 @@ async function run(req: WorkerRequest) {
     } catch {
       after = await createImageBitmap(img)
     }
-    const result: PreviewResult = { ...meta, type: 'preview', size: out.byteLength, before: before!, after }
+    const result: PreviewResult = { ...meta, type: 'preview', size: out.byteLength, before, after }
     postMessage(result, { transfer: [result.before, result.after] })
     return
   }
@@ -99,7 +97,7 @@ async function run(req: WorkerRequest) {
     ? keepOriginal(bytes, inputFormat === 'jpeg', settings.metadata)
     : out.byteOffset === 0 && out.byteLength === out.buffer.byteLength
       ? (out.buffer as ArrayBuffer)
-      : (out.slice().buffer as ArrayBuffer)
+      : (out.slice().buffer)
   const result: ProcessResult = { ...meta, type: 'done', bytes: outBuffer }
   postMessage(result, { transfer: [outBuffer] })
 }
@@ -108,13 +106,13 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const req = event.data
   try {
     await run(req)
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
     const result: ErrorResult = {
       type: 'error',
       id: req.id,
       message,
-      oom: err instanceof RangeError || OOM_PATTERN.test(message),
+      oom: error instanceof RangeError || OOM_PATTERN.test(message),
     }
     postMessage(result)
   }

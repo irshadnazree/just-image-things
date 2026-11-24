@@ -27,13 +27,13 @@ export function targetSize(width: number, height: number, r: Settings['resize'])
       scale = r.percent / 100
       break
   }
-  if (!Number.isFinite(scale) || scale <= 0) return null
-  if (scale > 1 && !r.allowUpscale && r.mode !== 'percent') return null
+  if (!Number.isFinite(scale) || scale <= 0) { return null }
+  if (scale > 1 && !r.allowUpscale && r.mode !== 'percent') { return null }
   const out = {
     width: Math.max(1, Math.round(width * scale)),
     height: Math.max(1, Math.round(height * scale)),
   }
-  if (out.width === width && out.height === height) return null
+  if (out.width === width && out.height === height) { return null }
   return out
 }
 

@@ -1,6 +1,8 @@
 import { parseArgs } from 'node:util'
-import { applyFlags, BOOLEAN_FLAGS, STRING_FLAGS, UsageError, type FlagValues } from '../src/lib/flags.ts'
-import { BUILTIN_PRESETS, DEFAULT_SETTINGS, ICO_SIZES, type Settings } from '../src/lib/settings.ts'
+import { applyFlags, BOOLEAN_FLAGS, STRING_FLAGS, UsageError } from '../src/lib/flags.ts'
+import type { FlagValues } from '../src/lib/flags.ts'
+import { BUILTIN_PRESETS, DEFAULT_SETTINGS, ICO_SIZES } from '../src/lib/settings.ts'
+import type { Settings } from '../src/lib/settings.ts'
 
 export const HELP = `just-image-things agent CLI
 
@@ -83,7 +85,7 @@ EXAMPLES
 export { UsageError }
 
 export interface CliOptions {
-  inputs: string[]
+  inputs: Array<string>
   out?: string
   settings: Settings
   json: boolean
@@ -95,7 +97,7 @@ export interface CliOptions {
 }
 
 /** Turn command-line arguments into the web app's Settings plus CLI-only switches. */
-export function parseCli(argv: string[], readConfig: (path: string) => unknown = () => ({})): CliOptions {
+export function parseCli(argv: Array<string>, readConfig: (path: string) => unknown = () => ({})): CliOptions {
   let parsed
   try {
     parsed = parseArgs({
@@ -137,8 +139,8 @@ export function parseCli(argv: string[], readConfig: (path: string) => unknown =
         help: { type: 'boolean', short: 'h' },
       },
     })
-  } catch (err) {
-    throw new UsageError(err instanceof Error ? err.message : String(err))
+  } catch (error) {
+    throw new UsageError(error instanceof Error ? error.message : String(error))
   }
   const { values: v, positionals } = parsed
   const base = {
@@ -151,18 +153,22 @@ export function parseCli(argv: string[], readConfig: (path: string) => unknown =
     browser: v.browser,
     help: !!v.help,
   }
-  if (v.help) return { ...base, settings: DEFAULT_SETTINGS }
-  if (!positionals.length) throw new UsageError('Give at least one folder or image file. Run with --help for usage.')
+  if (v.help) { return { ...base, settings: DEFAULT_SETTINGS } }
+  if (!positionals.length) { throw new UsageError('Give at least one folder or image file. Run with --help for usage.') }
 
   let config: Partial<Settings> | undefined
   if (v.config) {
     const patch = readConfig(v.config)
-    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new UsageError(`--config ${v.config} must contain a JSON object`)
-    config = patch as Partial<Settings>
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) { throw new UsageError(`--config ${v.config} must contain a JSON object`) }
+    config = patch
   }
   const flags: FlagValues = {}
-  for (const key of STRING_FLAGS) if (v[key] !== undefined) flags[key] = v[key]
-  for (const key of BOOLEAN_FLAGS) if (v[key]) flags[key] = true
+  for (const key of STRING_FLAGS) {
+    if (v[key] !== undefined) { flags[key] = v[key] }
+  }
+  for (const key of BOOLEAN_FLAGS) {
+    if (v[key]) { flags[key] = true }
+  }
   const settings = applyFlags(flags, { config })
 
   return { ...base, settings }

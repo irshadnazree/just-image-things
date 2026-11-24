@@ -3,7 +3,8 @@ import { FORMAT_BY_ID } from '../lib/formats'
 import { outputPath, renderName, reservePath } from '../lib/naming'
 import type { Settings } from '../lib/settings'
 import { commonRoot } from './intake'
-import { CancelledError, type WorkerPool } from './pool'
+import { CancelledError } from './pool'
+import type { WorkerPool } from './pool'
 import type { Sink } from './sinks'
 import { rasterizeSvg } from './svg'
 
@@ -38,7 +39,7 @@ export interface BatchHandlers {
 
 export interface BatchRun {
   done: Promise<{ cancelled: boolean }>
-  cancel(): void
+  cancel: () => void
 }
 
 /**
@@ -46,7 +47,7 @@ export interface BatchRun {
  * so both name, place and encode files the same way.
  */
 export function runBatch(
-  inputs: BatchInput[],
+  inputs: Array<BatchInput>,
   settings: Settings,
   pool: WorkerPool,
   sink: Sink,
@@ -86,12 +87,12 @@ export function runBatch(
         kept: res.keptOriginal,
         skipped: outcome.skipped,
       })
-    } catch (err) {
-      if (err instanceof CancelledError || cancelled) {
+    } catch (error) {
+      if (error instanceof CancelledError || cancelled) {
         handlers.onCancelled?.(index)
         return
       }
-      handlers.onError?.(index, err instanceof Error ? err.message : String(err))
+      handlers.onError?.(index, error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -102,15 +103,14 @@ export function runBatch(
     }
   }
 
-  // A few extra lanes keep workers fed while the main thread writes output.
   const done = Promise.all(Array.from({ length: pool.limit + 2 }, lane)).then(() => ({ cancelled }))
 
   return {
     done,
     cancel() {
-      if (cancelled) return
+      if (cancelled) { return }
       cancelled = true
-      for (let i = nextIndex; i < inputs.length; i++) handlers.onCancelled?.(i)
+      for (let i = nextIndex; i < inputs.length; i++) { handlers.onCancelled?.(i) }
       nextIndex = inputs.length
     },
   }

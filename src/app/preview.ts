@@ -29,7 +29,7 @@ export class PreviewRunner {
   }
 
   private pump() {
-    if (this.running || !this.next) return
+    if (this.running || !this.next) { return }
     this.running = this.next
     this.next = null
     if (!this.worker) {
@@ -54,8 +54,12 @@ export class PreviewRunner {
           data.before.close()
           data.after.close()
           job.resolve(null)
-        } else job.resolve(data)
-      } else if (data.type === 'error') job.reject(new Error(data.message))
+        } else {
+          job.resolve(data)
+        }
+      } else if (data.type === 'error') {
+        job.reject(new Error(data.message))
+      }
     }
     this.pump()
   }

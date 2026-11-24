@@ -1,6 +1,7 @@
 import { Button } from '@irshadnazree/just-things-ui'
 import { useEffect, useRef, useState } from 'react'
-import { useFreshStats, useStore, type Item } from '../app/store'
+import { useFreshStats, useStore } from '../app/store'
+import type { Item } from '../app/store'
 import { FORMAT_BY_ID, formatFromName, INPUT_LABELS } from '../lib/formats'
 import { formatBytes, formatDelta, formatDuration } from '../lib/format-bytes'
 import { AddButtons } from './Intake'
@@ -17,27 +18,29 @@ const STATUS_LABEL: Record<Item['status'], string> = {
   error: 'Failed',
 }
 
-/** Shape as well as colour, so status reads without telling green from red. */
 function StatusIcon({ status }: { status: Item['status'] }) {
-  if (status === 'processing') return <span className="spinner" />
-  if (status === 'done')
+  if (status === 'processing') { return <span className="spinner" /> }
+  if (status === 'done') {
     return (
       <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 8.5l3.2 3L13 4.5" />
       </svg>
     )
-  if (status === 'error')
+  }
+  if (status === 'error') {
     return (
       <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
         <path d="M4 4l8 8M12 4l-8 8" />
       </svg>
     )
-  if (status === 'skipped')
+  }
+  if (status === 'skipped') {
     return (
       <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
         <path d="M4 8h8" />
       </svg>
     )
+  }
   return <span className="status-ring" />
 }
 
@@ -54,8 +57,8 @@ function Row({ item, selected, onSelect, onRemove, running, showFormat, stale }:
   const dir = slash >= 0 ? item.relPath.slice(0, slash + 1) : ''
   const name = item.relPath.slice(slash + 1)
   const inFmt = formatFromName(item.file.name)
-  const done = item.status === 'done' && item.outSize !== undefined
-  const smaller = done && item.outSize! < item.file.size
+  const outSize = item.status === 'done' ? item.outSize : undefined
+  const smaller = outSize !== undefined && outSize < item.file.size
   const outdated = stale && item.status !== 'idle'
 
   return (
@@ -80,12 +83,12 @@ function Row({ item, selected, onSelect, onRemove, running, showFormat, stale }:
           <span className="error-text">{item.error}</span>
         ) : item.status === 'skipped' ? (
           <span className="muted">Skipped, already exists</span>
-        ) : done ? (
+        ) : outSize !== undefined ? (
           <>
-            {showFormat && <span className="tag">{FORMAT_BY_ID[item.outFormat!].label}</span>}
-            {formatBytes(item.outSize!)}
+            {showFormat && item.outFormat && <span className="tag">{FORMAT_BY_ID[item.outFormat].label}</span>}
+            {formatBytes(outSize)}
             <span className={`delta ${smaller ? 'good' : 'bad'}`}>
-              {item.kept ? 'kept' : formatDelta(item.file.size, item.outSize!)}
+              {item.kept ? 'kept' : formatDelta(item.file.size, outSize)}
             </span>
           </>
         ) : item.status === 'processing' ? (
@@ -119,7 +122,7 @@ function ResultBand() {
   const notice = useStore((s) => s.notice)
   const destination = useStore((s) => s.settings.output.destination)
   if (!stats) {
-    if (running || !last?.finishedAt || last.cancelled) return null
+    if (running || !last?.finishedAt || last.cancelled) { return null }
     return (
       <div className="stale-band" role="status">
         <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
@@ -152,7 +155,7 @@ function ResultBand() {
           {stats.failed > 0 && <span className="error-text"> · {stats.failed} failed</span>}
         </span>
         <span className="muted">
-          {formatDuration(stats.finishedAt! - stats.startedAt)}
+          {stats.finishedAt !== undefined && formatDuration(stats.finishedAt - stats.startedAt)}
           {where && ` · ${where}`}
         </span>
       </span>
@@ -177,7 +180,7 @@ export function FileList() {
 
   useEffect(() => {
     const el = scroller.current
-    if (!el) return
+    if (!el) { return }
     const ro = new ResizeObserver(() => setHeight(el.clientHeight))
     ro.observe(el)
     return () => ro.disconnect()
@@ -190,7 +193,7 @@ export function FileList() {
   const move = (delta: number) => {
     const idx = items.findIndex((i) => i.id === selectedId)
     const next = items[Math.min(items.length - 1, Math.max(0, idx + delta))]
-    if (!next) return
+    if (!next) { return }
     select(next.id)
     const el = scroller.current
     const pos = items.indexOf(next) * ROW_HEIGHT

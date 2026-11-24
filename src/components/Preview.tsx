@@ -11,8 +11,11 @@ type Meta = Omit<PreviewResult, 'before' | 'after' | 'type'>
 
 function draw(canvas: HTMLCanvasElement | null, bitmap: ImageBitmap) {
   const ctx = canvas?.getContext('bitmaprenderer')
-  if (ctx) ctx.transferFromImageBitmap(bitmap)
-  else bitmap.close()
+  if (ctx) {
+    ctx.transferFromImageBitmap(bitmap)
+  } else {
+    bitmap.close()
+  }
 }
 
 export function Preview() {
@@ -36,13 +39,12 @@ export function Preview() {
 
   useEffect(() => {
     const el = viewportRef.current
-    if (!el) return
+    if (!el) { return }
     const ro = new ResizeObserver(() => setViewport({ width: el.clientWidth, height: el.clientHeight }))
     ro.observe(el)
     return () => ro.disconnect()
   }, [collapsed])
 
-  // Only settings that change the pixels or bytes re-render the preview; where files go and how they're named don't.
   const { output: _output, workers: _workers, rename: _rename, ...visual } = settings
   const visualKey = JSON.stringify(visual)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the visual settings on purpose
@@ -51,10 +53,10 @@ export function Preview() {
   const file = item?.file
   const itemId = item?.id
   useEffect(() => {
-    if (!file || itemId === undefined || collapsed) return
+    if (!file || itemId === undefined || collapsed) { return }
     let stale = false
-    setLoading(true)
-    const timer = setTimeout(async () => {
+    const render = async () => {
+      setLoading(true)
       try {
         const raster = /\.svg$/i.test(file.name) ? await rasterizeSvg(file, previewSettings) : undefined
         const result = await runner.request({ type: 'preview', id: itemId, file, name: file.name, settings: previewSettings, raster })
@@ -70,13 +72,14 @@ export function Preview() {
         setShownId(itemId)
         setError(null)
         setLoading(false)
-      } catch (err) {
-        if (stale) return
-        setError(err instanceof Error ? err.message : String(err))
+      } catch (error_) {
+        if (stale) { return }
+        setError(error_ instanceof Error ? error_.message : String(error_))
         setShownId(null)
         setLoading(false)
       }
-    }, 250)
+    }
+    const timer = setTimeout(() => void render(), 250)
     return () => {
       stale = true
       clearTimeout(timer)
@@ -85,23 +88,23 @@ export function Preview() {
 
   const setFromPointer = (clientX: number) => {
     const rect = stageRef.current?.getBoundingClientRect()
-    if (!rect) return
+    if (!rect) { return }
     setPos(Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100)))
   }
 
   const ready = shownId === itemId && meta && !error
 
-  // Canvases with a bitmaprenderer context ignore object-fit, so size the stage to the image ourselves.
+  // WARNING: canvases with a bitmaprenderer context ignore object-fit, so the stage is sized to the image here.
   let stageSize: React.CSSProperties | undefined
   if (meta && ready) {
-    if (zoom === 'actual') stageSize = { width: meta.width, height: meta.height }
-    else {
+    if (zoom === 'actual') {
+      stageSize = { width: meta.width, height: meta.height }
+    } else {
       const scale = Math.min(viewport.width / meta.width, viewport.height / meta.height, 1)
       stageSize = { width: Math.floor(meta.width * scale), height: Math.floor(meta.height * scale) }
     }
   }
   const outLabel = meta ? FORMAT_BY_ID[meta.format].label : ''
-  // While a new preview renders, the old one stays up but says it is out of date.
   const updating = ready && loading
   const target = settings.format === 'original' ? null : FORMAT_BY_ID[settings.format].label
   const updatingLabel = target && target !== outLabel ? `Updating to ${target}…` : 'Updating…'
@@ -142,7 +145,7 @@ export function Preview() {
                 setFromPointer(e.clientX)
               }}
               onPointerMove={(e) => {
-                if (e.currentTarget.hasPointerCapture(e.pointerId)) setFromPointer(e.clientX)
+                if (e.currentTarget.hasPointerCapture(e.pointerId)) { setFromPointer(e.clientX) }
               }}
             >
               <canvas ref={afterRef} className="preview-canvas preview-canvas-after" hidden={!ready} />
@@ -163,8 +166,8 @@ export function Preview() {
                   aria-valuemax={100}
                   aria-valuenow={Math.round(pos)}
                   onKeyDown={(e) => {
-                    if (e.key === 'ArrowLeft') setPos((p) => Math.max(0, p - 5))
-                    if (e.key === 'ArrowRight') setPos((p) => Math.min(100, p + 5))
+                    if (e.key === 'ArrowLeft') { setPos((p) => Math.max(0, p - 5)) }
+                    if (e.key === 'ArrowRight') { setPos((p) => Math.min(100, p + 5)) }
                   }}
                 >
                   <span className="compare-knob" aria-hidden>⟷</span>
@@ -176,7 +179,7 @@ export function Preview() {
                   <span className="corner corner-right">{updating ? updatingLabel : outLabel}</span>
                 </>
               )}
-              {error && <div className="preview-message error-text">Can't preview: {error}</div>}
+              {error && <div className="preview-message error-text">Can’t preview: {error}</div>}
               {!item && <div className="preview-message muted">Select an image to preview</div>}
             </div>
           </div>

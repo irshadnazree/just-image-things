@@ -11,7 +11,7 @@ export interface NameContext {
   date: Date
 }
 
-export const NAME_TOKENS: { token: string; label: string }[] = [
+export const NAME_TOKENS: Array<{ token: string; label: string }> = [
   { token: '{name}', label: 'original name' },
   { token: '{n}', label: 'number' },
   { token: '{n:3}', label: 'number, padded (001)' },
@@ -25,17 +25,18 @@ export const NAME_TOKENS: { token: string; label: string }[] = [
 const INVALID_CHARS = /[/\\:*?"<>|\u0000-\u001f]/g
 
 export function sanitizeName(name: string): string {
-  const cleaned = name.replace(INVALID_CHARS, '-').replace(/^[\s.]+|[\s.]+$/g, '')
+  const cleaned = name.replaceAll(INVALID_CHARS, '-').replaceAll(/^[\s.]+|[\s.]+$/g, '')
   return cleaned || 'image'
 }
 
+const pad = (v: number) => String(v).padStart(2, '0')
+
 function isoDate(d: Date): string {
-  const pad = (v: number) => String(v).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 export function renderName(template: string, ctx: NameContext): string {
-  const out = (template.trim() || '{name}').replace(/\{(\w+)(?::(\d+))?\}/g, (match, key: string, pad?: string) => {
+  const out = (template.trim() || '{name}').replaceAll(/\{(\w+)(?::(\d+))?\}/g, (match, key: string, pad?: string) => {
     switch (key) {
       case 'name':
         return stemOf(ctx.original)
@@ -56,7 +57,7 @@ export function renderName(template: string, ctx: NameContext): string {
   return sanitizeName(out)
 }
 
-export function joinPath(...parts: string[]): string {
+export function joinPath(...parts: Array<string>): string {
   return parts.filter(Boolean).join('/')
 }
 
@@ -90,7 +91,7 @@ export function reservePath(path: string, taken: Set<string>): string {
   const base = dot > path.lastIndexOf('/') ? path.slice(0, dot) : path
   const ext = dot > path.lastIndexOf('/') ? path.slice(dot) : ''
   let candidate = path
-  for (let i = 2; taken.has(candidate.toLowerCase()); i++) candidate = `${base}-${i}${ext}`
+  for (let i = 2; taken.has(candidate.toLowerCase()); i++) { candidate = `${base}-${i}${ext}` }
   taken.add(candidate.toLowerCase())
   return candidate
 }

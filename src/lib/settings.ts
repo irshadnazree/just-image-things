@@ -14,7 +14,7 @@ export interface Settings {
   jpeg: { progressive: boolean; background: string }
   png: { colors: number }
   gif: { colors: number }
-  ico: { sizes: number[] }
+  ico: { sizes: Array<number> }
   resize: {
     mode: ResizeMode
     width: number
@@ -76,7 +76,7 @@ export interface Preset {
   settings: Partial<Settings>
 }
 
-export const BUILTIN_PRESETS: Preset[] = [
+export const BUILTIN_PRESETS: Array<Preset> = [
   {
     id: 'web',
     name: 'Web: WebP, 2048px max',

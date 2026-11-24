@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_SETTINGS } from '../../src/lib/settings.ts'
 import { parseCli, UsageError } from '../options.ts'
 
-const parse = (...args: string[]) => parseCli(args)
+const parse = (...args: Array<string>) => parseCli(args)
 
 describe('parseCli', () => {
   it('defaults to the web app settings', () => {
@@ -25,7 +25,6 @@ describe('parseCli', () => {
   it('spreads quality across lossy formats for --format original', () => {
     const { settings } = parse('x', '-f', 'original', '-q', '55', '--effort', '9')
     expect(settings.quality).toEqual({ jpeg: 55, webp: 55, avif: 55, jxl: 55 })
-    // Clamped to each format's range.
     expect(settings.effort).toEqual({ png: 6, webp: 6, avif: 9, jxl: 9 })
   })
 
@@ -65,6 +64,6 @@ describe('parseCli', () => {
       ['x', '--wat'],
       [],
     ]
-    for (const args of bad) expect(() => parse(...args), args.join(' ')).toThrow(UsageError)
+    for (const args of bad) { expect(() => parse(...args), args.join(' ')).toThrow(UsageError) }
   })
 })

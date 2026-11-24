@@ -12,9 +12,8 @@ export default function App() {
   const settingsOpen = useStore((s) => s.settingsOpen)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
 
-  // The phone settings sheet covers the page: lock the page behind it and let Escape close it.
   useEffect(() => {
-    if (!settingsOpen) return
+    if (!settingsOpen) { return }
     document.documentElement.classList.add('sheet-open')
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSettingsOpen(false)
     window.addEventListener('keydown', onKey)

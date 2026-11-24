@@ -9,24 +9,27 @@ import { DestinationPicker } from './SettingsPanel'
 function useNow(active: boolean) {
   const [now, setNow] = useState(() => performance.now())
   useEffect(() => {
-    if (!active) return
+    if (!active) { return }
     const t = setInterval(() => setNow(performance.now()), 500)
     return () => clearInterval(t)
   }, [active])
   return now
 }
 
-/** One line of the settings that matter most, for phones where the panel is far below. */
 function settingsSummary(s: Settings, count: number): string {
-  const parts: string[] = []
+  const parts: Array<string> = []
   const f = s.format
-  if (f === 'original') parts.push('Same format')
-  else {
+  if (f === 'original') {
+    parts.push('Same format')
+  } else {
     parts.push(FORMAT_BY_ID[f].label)
-    if ((f === 'webp' || f === 'avif' || f === 'jxl') && s.lossless[f]) parts.push('lossless')
-    else if (f === 'jpeg' || f === 'webp' || f === 'avif' || f === 'jxl') parts.push(`quality ${s.quality[f]}`)
+    if ((f === 'webp' || f === 'avif' || f === 'jxl') && s.lossless[f]) {
+      parts.push('lossless')
+    } else if (f === 'jpeg' || f === 'webp' || f === 'avif' || f === 'jxl') {
+      parts.push(`quality ${s.quality[f]}`)
+    }
   }
-  if (s.resize.mode !== 'none') parts.push('resized')
+  if (s.resize.mode !== 'none') { parts.push('resized') }
   const dest = s.output.destination
   parts.push(dest === 'folder' ? 'to a folder' : dest === 'zip' && count > 1 ? 'as ZIP' : 'as downloads')
   return parts.join(' · ')
@@ -49,7 +52,6 @@ export function RunBar() {
   const rate = elapsed > 0 ? finished / (elapsed / 1000) : 0
   const remaining = stats && rate > 0 ? ((stats.total - finished) / rate) * 1000 : 0
   const pct = stats ? (finished / stats.total) * 100 : 0
-  // Workers finish together at first, so an estimate from one image or under a second is noise.
   const timeLeft = !finished
     ? 'Starting…'
     : finished < 2 || elapsed < 1000

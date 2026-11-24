@@ -8,13 +8,12 @@ import { resizeImage } from './resize'
 
 function parseHex(hex: string): [number, number, number] {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex)
-  const n = m ? parseInt(m[1], 16) : 0xffffff
+  const n = m ? Number.parseInt(m[1], 16) : 0xff_ff_ff
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 
-/** JPEG has no alpha, so composite transparent pixels over a solid colour. */
 function flatten(img: ImageData, background: string): ImageData {
-  if (!hasAlpha(img)) return img
+  if (!hasAlpha(img)) { return img }
   const [br, bg, bb] = parseHex(background)
   const src = img.data
   const out = new Uint8ClampedArray(src.length)
@@ -28,7 +27,6 @@ function flatten(img: ImageData, background: string): ImageData {
   return new ImageData(out, img.width, img.height)
 }
 
-/** Reduce to a palette (like pngquant, minus the dithering). */
 async function quantizeImage(img: ImageData, colors: number) {
   const { quantize, applyPalette } = await import('gifenc')
   const alpha = hasAlpha(img)

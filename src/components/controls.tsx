@@ -1,4 +1,5 @@
-import { useId, useState, type ReactNode } from 'react'
+import { useId, useState } from 'react'
+import type { ReactNode } from 'react'
 
 export function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return (
@@ -30,7 +31,7 @@ export function Slider({
   step = 1,
   onChange,
   hint,
-  format = (v) => String(v),
+  format = String,
 }: {
   label: string
   value: number
@@ -95,7 +96,7 @@ export function Segmented<T extends string | number>({
   label,
 }: {
   value: T
-  options: { value: T; label: string; disabled?: boolean; title?: string }[]
+  options: Array<{ value: T; label: string; disabled?: boolean; title?: string }>
   onChange: (v: T) => void
   label: string
 }) {
@@ -123,7 +124,7 @@ export function NumberInput({
   value,
   onChange,
   min = 1,
-  max = 100000,
+  max = 100_000,
   suffix,
   label,
 }: {
@@ -134,12 +135,12 @@ export function NumberInput({
   suffix?: string
   label: string
 }) {
-  // Keep the raw text while typing so "1" on the way to "1200" isn't clamped; commit on blur.
+  // WARNING: keep the raw text while typing so "1" on the way to "1200" isn't clamped; commit on blur.
   const [draft, setDraft] = useState<string | null>(null)
   const commit = () => {
-    if (draft === null) return
+    if (draft === null) { return }
     const v = Number(draft)
-    if (draft.trim() !== '' && Number.isFinite(v)) onChange(Math.min(max, Math.max(min, Math.round(v))))
+    if (draft.trim() !== '' && Number.isFinite(v)) { onChange(Math.min(max, Math.max(min, Math.round(v)))) }
     setDraft(null)
   }
   return (
@@ -154,7 +155,7 @@ export function NumberInput({
         onChange={(e) => {
           setDraft(e.target.value)
           const v = Number(e.target.value)
-          if (e.target.value !== '' && Number.isFinite(v) && v >= min && v <= max) onChange(Math.round(v))
+          if (e.target.value !== '' && Number.isFinite(v) && v >= min && v <= max) { onChange(Math.round(v)) }
         }}
         onBlur={commit}
         onKeyDown={(e) => e.key === 'Enter' && commit()}

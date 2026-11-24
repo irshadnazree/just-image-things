@@ -8,14 +8,14 @@ declare module 'libheif-js/libheif-wasm/libheif-bundle.mjs' {
     free(): void
   }
   interface LibHeif {
-    HeifDecoder: new () => { decode(data: Uint8Array): HeifImage[] }
+    HeifDecoder: new () => { decode(data: Uint8Array): Array<HeifImage> }
   }
   const factory: (options?: Record<string, unknown>) => LibHeif | Promise<LibHeif>
   export default factory
 }
 
 declare module 'gifenc' {
-  type Palette = number[][]
+  type Palette = Array<Array<number>>
   type ColorFormat = 'rgb565' | 'rgb444' | 'rgba4444'
   export function quantize(
     rgba: Uint8Array | Uint8ClampedArray,

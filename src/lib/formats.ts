@@ -29,7 +29,7 @@ export interface FormatInfo {
   note?: string
 }
 
-export const OUTPUT_FORMATS: FormatInfo[] = [
+export const OUTPUT_FORMATS: Array<FormatInfo> = [
   { id: 'jpeg', label: 'JPEG', ext: 'jpg', mime: 'image/jpeg', lossy: true, losslessToggle: false, alpha: false },
   { id: 'png', label: 'PNG', ext: 'png', mime: 'image/png', lossy: false, losslessToggle: false, alpha: true },
   { id: 'webp', label: 'WebP', ext: 'webp', mime: 'image/webp', lossy: true, losslessToggle: true, alpha: true },
@@ -107,7 +107,7 @@ export function isSupportedName(name: string): boolean {
 
 function ascii(bytes: Uint8Array, start: number, length: number): string {
   let s = ''
-  for (let i = start; i < start + length && i < bytes.length; i++) s += String.fromCharCode(bytes[i])
+  for (let i = start; i < start + length && i < bytes.length; i++) { s += String.fromCharCode(bytes[i]) }
   return s
 }
 
@@ -116,26 +116,27 @@ const HEIF_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'he
 /** Identify a file by its magic bytes, falling back to the extension. */
 export function sniffFormat(bytes: Uint8Array, name = ''): InputFormat | null {
   const b = bytes
-  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'jpeg'
-  if (b[0] === 0x89 && ascii(b, 1, 3) === 'PNG') return 'png'
-  if (ascii(b, 0, 4) === 'RIFF' && ascii(b, 8, 4) === 'WEBP') return 'webp'
-  if (ascii(b, 0, 4) === 'GIF8') return 'gif'
-  if (ascii(b, 0, 4) === 'qoif') return 'qoi'
-  if (b[0] === 0xff && b[1] === 0x0a) return 'jxl'
-  if (ascii(b, 4, 8) === 'JXL \r\n\x87\n') return 'jxl'
-  if ((b[0] === 0x49 && b[1] === 0x49 && b[2] === 0x2a && b[3] === 0) || (b[0] === 0x4d && b[1] === 0x4d && b[2] === 0 && b[3] === 0x2a))
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) { return 'jpeg' }
+  if (b[0] === 0x89 && ascii(b, 1, 3) === 'PNG') { return 'png' }
+  if (ascii(b, 0, 4) === 'RIFF' && ascii(b, 8, 4) === 'WEBP') { return 'webp' }
+  if (ascii(b, 0, 4) === 'GIF8') { return 'gif' }
+  if (ascii(b, 0, 4) === 'qoif') { return 'qoi' }
+  if (b[0] === 0xff && b[1] === 0x0a) { return 'jxl' }
+  if (ascii(b, 4, 8) === 'JXL \r\n\u0087\n') { return 'jxl' }
+  if ((b[0] === 0x49 && b[1] === 0x49 && b[2] === 0x2a && b[3] === 0) || (b[0] === 0x4d && b[1] === 0x4d && b[2] === 0 && b[3] === 0x2a)) {
     return 'tiff'
+  }
   if (ascii(b, 4, 4) === 'ftyp') {
     const boxSize = (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]
     const brands = [ascii(b, 8, 4)]
-    for (let i = 16; i + 4 <= Math.min(boxSize, b.length); i += 4) brands.push(ascii(b, i, 4))
-    if (brands.includes('avif') || brands.includes('avis')) return 'avif'
-    if (brands.some((br) => HEIF_BRANDS.has(br))) return 'heic'
+    for (let i = 16; i + 4 <= Math.min(boxSize, b.length); i += 4) { brands.push(ascii(b, i, 4)) }
+    if (brands.includes('avif') || brands.includes('avis')) { return 'avif' }
+    if (brands.some((br) => HEIF_BRANDS.has(br))) { return 'heic' }
   }
-  if (b[0] === 0x42 && b[1] === 0x4d) return 'bmp'
-  if (b[0] === 0 && b[1] === 0 && (b[2] === 1 || b[2] === 2) && b[3] === 0) return 'ico'
+  if (b[0] === 0x42 && b[1] === 0x4d) { return 'bmp' }
+  if (b[0] === 0 && b[1] === 0 && (b[2] === 1 || b[2] === 2) && b[3] === 0) { return 'ico' }
   const head = ascii(b, 0, Math.min(b.length, 1024)).toLowerCase()
-  if (head.includes('<svg')) return 'svg'
+  if (head.includes('<svg')) { return 'svg' }
   return name ? formatFromName(name) : null
 }
 
@@ -145,9 +146,9 @@ export function resolveOutputFormat(
   input: InputFormat,
   hasAlpha: boolean,
 ): EncodableFormat {
-  if (target !== 'original') return target
-  if (input === 'heic') return 'jpeg'
-  if (input === 'svg') return 'png'
-  if (input === 'jpeg' && hasAlpha) return 'png'
+  if (target !== 'original') { return target }
+  if (input === 'heic') { return 'jpeg' }
+  if (input === 'svg') { return 'png' }
+  if (input === 'jpeg' && hasAlpha) { return 'png' }
   return input
 }
