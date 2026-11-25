@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => ({
             input: {
               main: resolve(import.meta.dirname, 'index.html'),
               generate: resolve(import.meta.dirname, 'generate.html'),
+              imagePreview: resolve(import.meta.dirname, 'image-preview.html'),
             },
           },
         },

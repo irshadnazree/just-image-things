@@ -30,6 +30,7 @@
     "client-zip": "^2.5.1",
     "gifenc": "^1.0.3",
     "libheif-js": "^1.23.5",
+    "mediabunny": "^1.66.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "utif2": "^4.1.0",

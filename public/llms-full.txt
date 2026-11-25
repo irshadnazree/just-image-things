@@ -4,6 +4,7 @@
 
 - Website: https://image.ruxera.com/
 - Test Image Generator: https://image.ruxera.com/generate
+- Video Frame Extractor: https://image.ruxera.com/image-preview
 - Concise index: https://image.ruxera.com/llms.txt
 - Source repository: https://github.com/irshadnazree/just-image-things
 
@@ -283,6 +284,16 @@ The `/generate` page creates deterministic synthetic test images completely loca
 - **Output formats**: All 10 encodable formats (`webp`, `avif`, `jpeg`, `png`, `jxl`, `gif`, `tiff`, `bmp`, `ico`, `qoi`), with a lossless toggle for `webp`, `avif`, and `jxl`.
 - **Optional Target File Size (KB or MB)**: Presets `100 KB`, `500 KB`, `1 MB`, `5 MB`, or any custom positive size. Runs binary search over encoder quality first (for lossy formats) and then colour complexity (up to 14 attempts) to land within ±10% of the target byte size. Reports status (`matched`, `too-large`, `too-small`, or `closest`).
 - **Filename format**: `generated-<width>x<height>-<size>.<ext>` (e.g. `generated-1280x720-500KB.webp`).
+
+---
+
+## 7b. Video Frame Extractor (`https://image.ruxera.com/image-preview`)
+
+The `/image-preview` page parses video files locally in a Web Worker using hardware-accelerated WebCodecs (`mediabunny`), with an automatic `<video>` element fallback:
+
+- **Input formats**: MP4, MOV, WebM, MKV, OGG, MPEG-TS (H.264, HEVC, VP8, VP9, AV1 where supported by the browser).
+- **Extraction modes**: All frames (up to 5,000 per scan), Keyframes (I-frames from container index), fixed FPS (`1–120`), Every Nth frame, and optional start/end time range in seconds.
+- **Inspect, copy & batch download**: Virtualized grid with full-resolution lightbox (`←`/`→`, `Space`, `C`, `D`, `Esc`), one-click full-resolution PNG clipboard copy, Shift+click range multi-select, and full-resolution export to PNG, WebP, or JPEG via streaming ZIP, folder (Chromium), or individual files.
 
 ---
 

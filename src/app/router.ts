@@ -5,6 +5,10 @@ export function isGeneratePath(pathname: string): boolean {
   return /^\/generate\/?$/.test(pathname)
 }
 
+export function isImagePreviewPath(pathname: string): boolean {
+  return /^\/image-preview\/?$/.test(pathname)
+}
+
 export function navigate(to: string) {
   if (location.pathname === to) { return }
   history.pushState(null, '', to)

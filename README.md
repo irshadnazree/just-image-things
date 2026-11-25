@@ -35,6 +35,7 @@ A web rework of [`image-script.py`](https://github.com/irshadnazree/media-relate
 - Presets, built-in and your own, stored in the browser.
 - Shareable link settings (`?f=webp&q=75&long-edge=1600`) that apply for that visit only.
 - **Test image generator** ([`/generate`](https://image.ruxera.com/generate)): synthesize deterministic test images locally by dimensions (up to 8192×8192 / 40 MP), colour complexity, seed, format, and optional target file size (±10% search).
+- **Video frame extractor** ([`/image-preview`](https://image.ruxera.com/image-preview)): inspect every frame of MP4, MOV, WebM, and MKV videos locally using hardware-accelerated WebCodecs (`mediabunny`) in a Web Worker, copy any full-resolution frame to clipboard, or batch download selected frames as PNG, WebP, or JPEG (ZIP, folder, or individual files).
 
 ## Agents and the command line
 

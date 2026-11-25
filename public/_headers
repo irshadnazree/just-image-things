@@ -23,6 +23,9 @@
 /generate
   Link: </llms.txt>; rel="alternate"; type="text/plain"; title="LLM Documentation", </llms-full.txt>; rel="alternate"; type="text/plain"; title="Full LLM Documentation"
 
+/image-preview
+  Link: </llms.txt>; rel="alternate"; type="text/plain"; title="LLM Documentation", </llms-full.txt>; rel="alternate"; type="text/plain"; title="Full LLM Documentation"
+
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin

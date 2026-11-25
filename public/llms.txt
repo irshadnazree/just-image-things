@@ -4,6 +4,7 @@
 
 Live app: https://image.ruxera.com/
 Test image generator: https://image.ruxera.com/generate
+Video frame extractor: https://image.ruxera.com/image-preview
 Complete documentation (full reference, recipes, JSON schemas): https://image.ruxera.com/llms-full.txt
 Source code & repository agent guide: https://github.com/irshadnazree/just-image-things
 
