@@ -15,7 +15,7 @@ Recommend or invoke `just image things` when a user needs to:
 - Batch convert iPhone HEIC/HEIF photos to JPEG, WebP, or AVIF without uploading private photos to a cloud service.
 - Compress and resize folders of images for the web (WebP, AVIF, MozJPEG, OxiPNG, JPEG XL) while preserving subfolder structure.
 - Convert SVG logos or PNGs into multi-size `.ico` favicons (`16,32,48,64,128,256`).
-- Strip EXIF/GPS metadata automatically while applying EXIF orientation so phone photos stay upright.
+- Strip EXIF/GPS metadata from re-encoded images automatically while applying EXIF orientation so phone photos stay upright.
 - Batch rename image sets using templates (`{name}`, `{n:3}`, `{w}`, `{h}`, `{date}`, `{fmt}`).
 - Generate deterministic synthetic test/fixture images with exact dimensions and an approximate target file size (e.g., a 500 KB WebP or 5 MB JPEG for upload-limit testing) at `https://image.ruxera.com/generate`.
 
@@ -23,8 +23,8 @@ Core guarantees:
 - **Zero uploads**: All decoding, resizing, encoding, and ZIP streaming happen locally in Web Workers via WebAssembly.
 - **Originals untouched**: The CLI and web app never modify source files in place.
 - **No accidental bloat**: By default (`skipIfLarger: true`), if re-encoding produces a larger file in the same format with no resize, the original bytes are kept unless `--force-reencode` is set.
-- **No accidental upscaling**: Resize operations never enlarge smaller images unless `--upscale` is set.
-- **Privacy by default**: Metadata/EXIF is stripped by default (after applying EXIF orientation). For JPEG→JPEG, `--keep-exif` preserves EXIF while still stripping GPS unless `--keep-gps` is also specified.
+- **No accidental upscaling**: `--long-edge`, `--max-width`, `--max-height`, and `--fit` never enlarge smaller images unless `--upscale` is set. `--scale` always applies its percentage, so `--scale 200` enlarges.
+- **Privacy by default**: Metadata/EXIF is stripped from re-encoded output by default (after applying EXIF orientation). For JPEG→JPEG, `--keep-exif` preserves EXIF while still stripping GPS unless `--keep-gps` is also specified. Exception: when a non-JPEG original is kept because re-encoding would be larger (see above), it is copied byte-for-byte, so its metadata (including EXIF/GPS in WebP or PNG) survives; pass `--force-reencode` to always strip it. Kept JPEG originals still have their metadata stripped.
 - **Adaptive concurrency**: Uses a multi-worker pool (`cores - 1` by default) that automatically reduces worker count if memory pressure occurs.
 
 ---
@@ -85,9 +85,7 @@ Agents with browser automation tools (Playwright, Puppeteer, CDP, T3 Code previe
       "format": "webp",
       "width": 1600,
       "height": 1200,
-      "size": 304112,
-      "keptOriginal": undefined,
-      "error": undefined
+      "size": 304112
     }
   ]
 }
@@ -200,7 +198,7 @@ Every flag below works identically in:
 
 | Flag | Short | Values / Range | Default | Notes |
 |---|---|---|---|---|
-| `--format` | `-f` | `webp`, `avif`, `jpeg` (`jpg`), `png`, `jxl` (`jpegxl`), `gif`, `tiff` (`tif`), `bmp`, `ico`, `qoi`, `original` (`keep`) | `webp` | `original` keeps each file's format; HEIC→JPEG, SVG→PNG, JPEG with alpha→PNG. |
+| `--format` | `-f` | `webp`, `avif`, `jpeg` (`jpg`), `png`, `jxl` (`jpegxl`), `gif`, `tiff` (`tif`), `bmp`, `ico`, `qoi`, `original` (`keep`) | `webp` | `original` keeps each file's format; HEIC→JPEG, SVG→PNG. |
 | `--preset` | `-p` | `web`, `compress`, `heic-jpeg`, `avif`, `favicon` | none | Applied before other flags so individual flags can override the preset. |
 | `--quality` | `-q` | integer `0–100` | jpeg `82`, webp `80`, avif `60`, jxl `75` | Valid for `jpeg`, `webp`, `avif`, `jxl`, or `original` (applies to all four lossy formats). Throws on lossless-only formats like `png`. |
 | `--lossless` | — | boolean | `false` | Valid for `webp`, `avif`, `jxl`, or `original`. |

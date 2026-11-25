@@ -149,6 +149,7 @@ export function decodeQoi(bytes: Uint8Array): RGBAImage {
     if (p >= end) { throw new Error('Truncated QOI file') }
     const op = bytes[p++]
     if (op === OP_RGB) {
+      if (p + 3 > end) { throw new Error('Truncated QOI file') }
       r = bytes[p]
       g = bytes[p + 1]
       b = bytes[p + 2]
@@ -157,6 +158,7 @@ export function decodeQoi(bytes: Uint8Array): RGBAImage {
       index[(r * 3 + g * 5 + b * 7 + a * 11) & 63] = packed
       u32[i++] = packed
     } else if (op === OP_RGBA) {
+      if (p + 4 > end) { throw new Error('Truncated QOI file') }
       r = bytes[p]
       g = bytes[p + 1]
       b = bytes[p + 2]
@@ -182,6 +184,7 @@ export function decodeQoi(bytes: Uint8Array): RGBAImage {
         index[(r * 3 + g * 5 + b * 7 + a * 11) & 63] = packed
         u32[i++] = packed
       } else if (tag === OP_LUMA) {
+        if (p + 1 > end) { throw new Error('Truncated QOI file') }
         const next = bytes[p++]
         const dg = (op & 0x3f) - 32
         r = (r + dg - 8 + ((next >> 4) & 0x0f)) & 255
@@ -192,6 +195,7 @@ export function decodeQoi(bytes: Uint8Array): RGBAImage {
         u32[i++] = packed
       } else {
         const run = (op & 0x3f) + 1
+        index[(r * 3 + g * 5 + b * 7 + a * 11) & 63] = packed
         const stop = Math.min(pixels, i + run)
         u32.fill(packed, i, stop)
         i = stop
