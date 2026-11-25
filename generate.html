@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Image Generator by Size &amp; Format — just image things</title>
+    <meta
+      name="description"
+      content="Generate deterministic test images locally by dimensions, complexity, seed, and target file size in WebP, AVIF, JPEG, PNG, JXL, GIF, TIFF, BMP, ICO, or QOI."
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="theme-color" content="#00ab98" />
+    <link rel="canonical" href="https://image.ruxera.com/generate" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="alternate" type="text/plain" title="LLM Documentation (llms.txt)" href="https://image.ruxera.com/llms.txt" />
+    <link rel="alternate" type="text/plain" title="Complete LLM Documentation (llms-full.txt)" href="https://image.ruxera.com/llms-full.txt" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="just image things" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://image.ruxera.com/generate" />
+    <meta property="og:title" content="Test Image Generator by Size &amp; Format — just image things" />
+    <meta
+      property="og:description"
+      content="Generate deterministic test images locally in your browser by dimensions, colour complexity, seed, format, and target file size. Nothing is uploaded."
+    />
+    <meta property="og:image" content="https://image.ruxera.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="just image things — local WebAssembly test image generator" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Test Image Generator by Size &amp; Format — just image things" />
+    <meta
+      name="twitter:description"
+      content="Generate deterministic test images locally in your browser by dimensions, colour complexity, seed, format, and target file size. Nothing is uploaded."
+    />
+    <meta name="twitter:image" content="https://image.ruxera.com/og-image.png" />
+    <meta name="twitter:image:alt" content="just image things — local WebAssembly test image generator" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "@id": "https://image.ruxera.com/generate#app",
+            "name": "just image things — Test Image Generator",
+            "url": "https://image.ruxera.com/generate",
+            "description": "Generate deterministic synthetic test images locally in your browser using WebAssembly. Choose exact pixel dimensions (up to 8192x8192 / 40 MP), colour complexity, deterministic seed, format (WebP, AVIF, JPEG, PNG, JPEG XL, GIF, TIFF, BMP, ICO, QOI), and an optional target file size.",
+            "applicationCategory": "DeveloperApplication",
+            "applicationSubCategory": "Test Image Generator",
+            "operatingSystem": "Any",
+            "browserRequirements": "Requires JavaScript and WebAssembly",
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "image": "https://image.ruxera.com/og-image.png",
+            "featureList": [
+              "Custom dimensions from 1x1 up to 8192x8192 (40 MP max) with 512x512, 1280x720, 1920x1080, and 3840x2160 presets",
+              "Deterministic PRNG seed so identical settings always produce byte-identical pixels",
+              "Colour complexity slider (0-100): Flat, Gradient, Shapes, Detailed, and full Noise",
+              "Export to WebP, AVIF, JPEG, PNG, JPEG XL, GIF, TIFF, BMP, ICO, or QOI with lossless toggle",
+              "Optional target file size search (KB/MB) tuning quality and complexity to land within ±10%"
+            ],
+            "softwareHelp": {
+              "@type": "CreativeWork",
+              "name": "LLM & Agent Documentation",
+              "url": "https://image.ruxera.com/llms.txt"
+            },
+            "isPartOf": {
+              "@id": "https://image.ruxera.com/#website"
+            }
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "just image things",
+                "item": "https://image.ruxera.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Test Image Generator",
+                "item": "https://image.ruxera.com/generate"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+
+    <!-- Stored theme on <html> before first paint. Same string as themeScript from just-things-ui. -->
+    <script>
+      (function(){try{var t=localStorage.getItem("jt-theme");if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <main style="max-width:48rem;margin:2rem auto;padding:0 1.25rem;font-family:system-ui,sans-serif;line-height:1.6">
+        <h1>Test Image Generator — just image things</h1>
+        <p>
+          Synthesize deterministic test and fixture images locally in your browser with WebAssembly. Nothing is
+          uploaded.
+        </p>
+        <p><strong>JavaScript and WebAssembly are required to run the interactive generator.</strong></p>
+        <h2>Generator Options</h2>
+        <ul>
+          <li><strong>Dimensions:</strong> 1 to 8,192 px per side (40 MP max), with presets for 512×512, 1280×720, 1920×1080, and 3840×2160.</li>
+          <li><strong>Colour complexity (0–100) &amp; seed:</strong> Flat, Gradient, Shapes, Detailed, or Noise with a deterministic seed.</li>
+          <li><strong>Output formats:</strong> WebP, AVIF, JPEG, PNG, JPEG XL, GIF, TIFF, BMP, ICO, and QOI (with lossless mode for WebP, AVIF, and JPEG XL).</li>
+          <li><strong>Target file size:</strong> Optional KB/MB target (e.g. 100 KB, 500 KB, 1 MB, 5 MB) searched automatically to land within ±10%.</li>
+        </ul>
+        <p>
+          <a href="/">Back to Batch Image Converter</a> ·
+          <a href="/llms.txt">LLM &amp; Agent Docs (llms.txt)</a> ·
+          <a href="https://github.com/irshadnazree/just-image-things">Source on GitHub</a>
+        </p>
+      </main>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

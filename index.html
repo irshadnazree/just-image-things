@@ -2,10 +2,133 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Batch convert, compress, resize and rename images in your browser. HEIC, AVIF, WebP, JPEG XL and more. Nothing is uploaded." />
-    <title>just image things</title>
+    <title>just image things — Batch Image Converter, Compressor &amp; Resizer</title>
+    <meta
+      name="description"
+      content="Batch convert, compress, resize &amp; rename HEIC, WebP, AVIF, JPEG XL, PNG, JPEG, SVG &amp; ICO locally in your browser with WebAssembly. Free, private, no uploads."
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="theme-color" content="#00ab98" />
+    <link rel="canonical" href="https://image.ruxera.com/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="alternate" type="text/plain" title="LLM Documentation (llms.txt)" href="https://image.ruxera.com/llms.txt" />
+    <link rel="alternate" type="text/plain" title="Complete LLM Documentation (llms-full.txt)" href="https://image.ruxera.com/llms-full.txt" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="just image things" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://image.ruxera.com/" />
+    <meta property="og:title" content="just image things — Batch Image Converter, Compressor &amp; Resizer" />
+    <meta
+      property="og:description"
+      content="Batch convert, compress, resize &amp; rename HEIC, WebP, AVIF, JPEG XL, PNG, JPEG, SVG &amp; ICO locally in your browser with WebAssembly. Nothing is uploaded."
+    />
+    <meta property="og:image" content="https://image.ruxera.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="just image things — local WebAssembly batch image converter, compressor, resizer, and generator" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="just image things — Batch Image Converter, Compressor &amp; Resizer" />
+    <meta
+      name="twitter:description"
+      content="Batch convert, compress, resize &amp; rename HEIC, WebP, AVIF, JPEG XL, PNG, JPEG, SVG &amp; ICO locally in your browser with WebAssembly. Nothing is uploaded."
+    />
+    <meta name="twitter:image" content="https://image.ruxera.com/og-image.png" />
+    <meta name="twitter:image:alt" content="just image things — local WebAssembly batch image converter, compressor, resizer, and generator" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://image.ruxera.com/#website",
+            "url": "https://image.ruxera.com/",
+            "name": "just image things",
+            "description": "Free browser-based batch image converter, compressor, resizer, renamer, and test image generator running locally with WebAssembly."
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://image.ruxera.com/#app",
+            "name": "just image things",
+            "url": "https://image.ruxera.com/",
+            "description": "Batch convert, compress, resize, and rename images and entire folders locally in your browser using WebAssembly. Supports HEIC, WebP, AVIF, JPEG XL, JPEG (MozJPEG), PNG (OxiPNG), TIFF, GIF, BMP, ICO, QOI, and SVG with zero uploads.",
+            "applicationCategory": "MultimediaApplication",
+            "applicationSubCategory": "Image Converter and Optimizer",
+            "operatingSystem": "Any",
+            "browserRequirements": "Requires JavaScript and WebAssembly",
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "image": "https://image.ruxera.com/og-image.png",
+            "featureList": [
+              "100% local on-device WebAssembly processing with zero file uploads",
+              "Batch convert and compress entire folders while keeping subfolder structure",
+              "Read 12 formats: JPEG, PNG/APNG, WebP, AVIF, JPEG XL, HEIC/HEIF, TIFF, GIF, BMP, ICO/CUR, QOI, SVG",
+              "Write 10 formats: MozJPEG, OxiPNG, WebP, AVIF, JPEG XL, GIF, TIFF, BMP, multi-size ICO, QOI",
+              "Resize by longest edge, max width, max height, fit-in-box, or percentage without upscaling by default",
+              "Batch rename with templates ({name}, {n}, {n:3}, {w}, {h}, {date}, {fmt})",
+              "Strip EXIF and GPS metadata automatically while applying EXIF orientation",
+              "URL link settings, browser scripting API (window.justImageThings), WebMCP tools, and headless CLI",
+              "Deterministic synthetic test image generator with target file size search at /generate"
+            ],
+            "softwareHelp": {
+              "@type": "CreativeWork",
+              "name": "LLM & Agent Documentation",
+              "url": "https://image.ruxera.com/llms.txt"
+            },
+            "sameAs": [
+              "https://github.com/irshadnazree/just-image-things"
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://image.ruxera.com/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Are my images uploaded to a server?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. just image things runs entirely inside your browser using WebAssembly codecs (MozJPEG, OxiPNG, WebP, AVIF, JPEG XL, libheif) and Web Workers. Your images never leave your device."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Which image formats are supported?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "You can read JPEG, PNG/APNG, WebP, AVIF, JPEG XL, HEIC/HEIF, TIFF, GIF (first frame), BMP, ICO/CUR, QOI, and SVG, and export to JPEG, PNG, WebP, AVIF, JPEG XL, GIF, TIFF, BMP, multi-size ICO, or QOI."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How can AI agents or scripts automate just image things?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Browser agents can open https://image.ruxera.com/?f=webp&q=75&long-edge=1600, attach files to input#jit-files, and call await window.justImageThings.run() to get a JSON report (or use WebMCP tools convert_images and list_queued_images). Locally, the repo includes a headless CLI via bun run agent <folder> [options] --json. Full docs are at https://image.ruxera.com/llms.txt."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I generate test images with a specific file size?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Visit https://image.ruxera.com/generate to synthesize deterministic test images locally by dimensions (up to 8192x8192 / 40 MP), colour complexity, seed, output format, and optional target file size."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+
     <!-- Stored theme on <html> before first paint. Same string as themeScript from just-things-ui. -->
     <script>
       (function(){try{var t=localStorage.getItem("jt-theme");if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()
@@ -13,6 +136,42 @@
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <main style="max-width:48rem;margin:2rem auto;padding:0 1.25rem;font-family:system-ui,sans-serif;line-height:1.6">
+        <h1>just image things — Local Batch Image Converter, Compressor &amp; Resizer</h1>
+        <p>
+          Batch convert, compress, resize, and rename images or entire folders directly in your browser using
+          WebAssembly. Everything runs locally on your device — nothing is ever uploaded.
+        </p>
+        <p><strong>JavaScript and WebAssembly are required to run the interactive app.</strong></p>
+        <h2>Supported Formats</h2>
+        <ul>
+          <li><strong>Read (12):</strong> JPEG, PNG/APNG, WebP, AVIF, JPEG XL, HEIC/HEIF, TIFF, GIF (first frame), BMP, ICO/CUR, QOI, SVG</li>
+          <li><strong>Write (10):</strong> JPEG (MozJPEG), PNG (OxiPNG), WebP, AVIF, JPEG XL, GIF, TIFF, BMP, multi-size ICO, QOI</li>
+        </ul>
+        <h2>Key Features</h2>
+        <ul>
+          <li>Drop individual images, whole folders (preserving subfolders), or paste from clipboard.</li>
+          <li>Resize by longest edge, max width, max height, fit-in-box, or percentage (never upscales unless requested).</li>
+          <li>Batch rename templates with <code>{name}</code>, <code>{n}</code>, <code>{n:3}</code>, <code>{w}</code>, <code>{h}</code>, <code>{date}</code>, and <code>{fmt}</code>.</li>
+          <li>Strips EXIF and GPS metadata by default while applying EXIF orientation so phone photos stay upright.</li>
+          <li>Keeps the original file when re-encoding would make it larger.</li>
+          <li>Built-in presets: Web (WebP 2048px), Compress (keep format), iPhone HEIC to JPEG, Smallest AVIF, and Multi-size Favicon (ICO).</li>
+        </ul>
+        <h2>Automation, Agents &amp; Documentation</h2>
+        <ul>
+          <li><a href="/llms.txt">LLM &amp; Agent Guide (llms.txt)</a> and <a href="/llms-full.txt">Complete Reference (llms-full.txt)</a></li>
+          <li>URL link settings (for this visit only): <code>https://image.ruxera.com/?f=webp&amp;q=75&amp;long-edge=1600</code></li>
+          <li>Browser scripting API: attach files to <code>input#jit-files</code> and evaluate <code>await window.justImageThings.run()</code></li>
+          <li>Headless CLI (from repo): <code>bun run agent &lt;folder&gt; -f webp -q 75 --long-edge 2048 --json</code></li>
+        </ul>
+        <h2>Related Pages</h2>
+        <ul>
+          <li><a href="/generate">Test Image Generator</a> — generate deterministic synthetic images by dimensions, complexity, seed, format, and target file size.</li>
+          <li><a href="https://github.com/irshadnazree/just-image-things">Source Code on GitHub</a></li>
+        </ul>
+      </main>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

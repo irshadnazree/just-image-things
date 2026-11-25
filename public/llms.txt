@@ -1,31 +1,65 @@
 # just image things
 
-> Convert, compress, resize and rename images. The website runs entirely in the browser (WebAssembly); nothing is uploaded.
+> Free, open-source browser-based batch image converter, compressor, resizer, renamer, and deterministic test-image generator. Everything runs locally on-device with WebAssembly — no files are ever uploaded.
 
-## With a browser tool
+Live app: https://image.ruxera.com/
+Test image generator: https://image.ruxera.com/generate
+Complete documentation (full reference, recipes, JSON schemas): https://image.ruxera.com/llms-full.txt
+Source code & repository agent guide: https://github.com/irshadnazree/just-image-things
 
-Don't click through the UI. Open the page with settings in the link, put the files on the file input, call one function:
+## Documentation
 
-1. Open https://image.ruxera.com/?f=webp&q=75&long-edge=1600 (settings from the link apply to that visit only)
-2. Set the image paths on `input#jit-files` (your browser tool's file upload action)
-3. Evaluate `await justImageThings.run()` and read the JSON report (output names, format, size, dimensions, errors)
-4. The outputs are browser downloads, one per image (`run(undefined, { save: "zip" })` for one zip). Find them where your browser tool reports downloads.
+- [Complete LLM & Agent Reference](https://image.ruxera.com/llms-full.txt): Full flag reference, presets, format matrix, JSON report schemas, WebMCP tools, CLI reference, `/generate` guide, and task recipes.
+- [Batch Image Converter](https://image.ruxera.com/): Convert, compress, resize, and rename images or entire folder trees locally in WebAssembly.
+- [Test Image Generator](https://image.ruxera.com/generate): Generate deterministic test images by dimensions, colour complexity, seed, format, and target file size.
+- [GitHub Repository & AGENTS.md](https://github.com/irshadnazree/just-image-things): Source code, headless CLI runner, and contributor guide.
 
-`justImageThings.help` prints the full reference. Browsers with WebMCP (`navigator.modelContext`) also get `convert_images` and `list_queued_images` tools.
+## Use with a browser agent (recommended, zero UI clicking)
 
-## Without a browser
+Do not click through settings controls. Pass settings in the URL or to `justImageThings.run()`, attach local files to `input#jit-files`, and run one call:
 
-From a clone of the repo, the CLI runs this site in headless Chrome: `bun run agent <folder> -f webp -q 75 --long-edge 1600 --json`.
+1. Open `https://image.ruxera.com/?f=webp&q=75&long-edge=1600` (URL flags apply for this visit only; saved user preferences are untouched).
+2. Upload local file paths to `input#jit-files` using your browser tool's file-upload action.
+3. Evaluate `await window.justImageThings.run()` (or pass flags directly: `await window.justImageThings.run("-f webp -q 75 --long-edge 1600", { save: "zip" })`).
+4. Read the returned JSON `RunReport` (output paths, formats, dimensions, byte sizes, `keptOriginal`, errors) and collect the downloaded files from your browser tool's download folder.
 
-## Settings
+- Default download mode: individual file downloads for 10 or fewer files (`save: "files"`), or a single archive for more than 10 files (`save: "zip"`). Override with `run(flags, { save: "files" | "zip", clear: true })`.
+- Other page API methods: `justImageThings.configure(flags)`, `justImageThings.files()`, `justImageThings.settings()`, `justImageThings.clear()`, `justImageThings.help`.
+- WebMCP (`navigator.modelContext`): browsers supporting WebMCP automatically expose `convert_images` (`{ flags?, save? }`) and `list_queued_images` (`{}`).
 
-- `f` / `format`: webp, avif, jpeg, png, jxl, gif, tiff, bmp, ico, qoi, original (keep format; HEIC→JPEG, SVG→PNG)
-- `q` / `quality`: 0-100 (defaults jpeg 82, webp 80, avif 60, jxl 75); `lossless` (webp, avif, jxl); `effort`
-- Resize (pick one, never upscales without `upscale`): `long-edge`, `max-width`, `max-height`, `fit` (e.g. 1920x1080), `scale` (percent)
-- `rename`: template without extension, tokens `{name} {n} {n:3} {w} {h} {date} {fmt}`; `start-at`
-- `keep-exif` (JPEG→JPEG only), `keep-gps`, `force-reencode`, `colors`, `background`, `ico-sizes`
-- `p` / `preset`: web, compress, heic-jpeg, avif, favicon
+## Use from the command line (no browser tool needed)
 
-Inputs: JPEG, PNG/APNG, WebP, AVIF, HEIC/HEIF, JPEG XL, GIF, TIFF, BMP, ICO/CUR, QOI, SVG.
+From a clone of the repository (requires Bun and any Chromium-based browser):
 
-Source: https://github.com/irshadnazree/just-image-things
+```sh
+bun run agent <folder-or-files...> -f webp -q 75 --long-edge 2048 --json
+```
+
+- Originals are never modified. Output defaults to `<folder>_processed` (or `-o <dir>`), keeping subfolder structure (`--flat` to flatten).
+- Use `--dry-run --json` first to inspect matched files and resolved settings.
+- Machine-readable JSON report goes to `stdout`; progress logs go to `stderr`.
+- Exit codes: `0` all succeeded, `1` partial failure, `2` usage or setup error.
+
+## Key capabilities & shared flags
+
+All settings use one vocabulary across the CLI (`--long-edge 1600`), URL params (`?long-edge=1600`), and `window.justImageThings`:
+
+- Formats (`-f` / `--format`): `webp` (default), `avif`, `jpeg` (`jpg`), `png`, `jxl` (`jpegxl`), `gif`, `tiff` (`tif`), `bmp`, `ico`, `qoi`, `original` (`keep`; HEIC→JPEG, SVG→PNG).
+- Presets (`-p` / `--preset`): `web` (WebP, 2048px long edge), `compress` (keep format), `heic-jpeg` (JPEG q=90), `avif`, `favicon` (multi-size ICO 16–256px).
+- Compression: `-q` / `--quality` `0–100` (defaults: jpeg 82, webp 80, avif 60, jxl 75), `--lossless` (webp, avif, jxl), `--effort` (png 0–6, webp 0–6, avif 0–10, jxl 1–9), `--colors` (png 0 or 2–256, gif 2–256), `--background` `#hex` (JPEG alpha fill), `--no-progressive`, `--ico-sizes`, `--force-reencode` (by default, originals are kept if re-encoding is larger).
+- Resize (pick one; never upscales without `--upscale`): `--long-edge`, `--max-width`, `--max-height`, `--fit WxH`, `--scale %`, `--resize-method` (`lanczos3`, `mitchell`, `catrom`, `triangle`).
+- Rename: `--rename` template without extension using `{name}`, `{n}`, `{n:3}`, `{w}`, `{h}`, `{date}`, `{fmt}`; `--start-at <n>`.
+- Metadata & output: EXIF stripped by default (orientation applied automatically); `--keep-exif` (JPEG→JPEG only), `--keep-gps` (requires `--keep-exif`), `--flat`, `--conflict` (`rename` | `overwrite` | `skip`), `--workers <1-64>`.
+
+## Supported formats
+
+- Read (12): JPEG, PNG/APNG, WebP, AVIF, JPEG XL, HEIC/HEIF, TIFF, GIF (first frame), BMP, ICO/CUR, QOI, SVG (rasterized at output size).
+- Write (10): JPEG (MozJPEG), PNG (OxiPNG), WebP, AVIF, JPEG XL, GIF, TIFF, BMP, ICO (multi-size), QOI.
+
+## Test image generator (`/generate`)
+
+Open `https://image.ruxera.com/generate` to synthesize deterministic placeholder or QA test images locally:
+- Dimensions: 1–8192 px per side (40 MP max), with presets `512×512`, `1280×720`, `1920×1080`, `3840×2160`.
+- Complexity (`0–100`: Flat, Gradient, Shapes, Detailed, Noise) and deterministic PRNG seed (`0–2147483647`).
+- Optional target file size (KB/MB) — binary searches quality and complexity (up to 14 attempts) to land within ±10%.
+- Encodes to all 10 output formats (`webp`, `avif`, `jpeg`, `png`, `jxl`, `gif`, `tiff`, `bmp`, `ico`, `qoi`).

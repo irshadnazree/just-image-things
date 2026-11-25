@@ -12,25 +12,32 @@ export const AGENT_INPUT_ID = 'jit-files'
 
 const RESERVED_PARAMS = ['agent', 'save']
 
-const HELP = `just image things: scripting API (runs locally, nothing is uploaded)
+const HELP = `just image things: scripting API (runs locally in WebAssembly, nothing is uploaded)
 
-1. Add files: set the paths on the file input  input#${AGENT_INPUT_ID}
+1. Add files: set local file paths on  input#${AGENT_INPUT_ID}
    (any <input type=file> on the page works too).
 2. Run:  await justImageThings.run("-f webp -q 75 --long-edge 1600")
-   Returns a JSON report. Outputs go to the browser's downloads
-   (save: "files", one download per image) or one zip (save: "zip").
+   Returns a JSON RunReport ({ ok, cancelled, saved, total, failed, bytesIn, bytesOut, ms, files }).
+   Outputs download individually (save: "files", default for <=10 images) or as one zip
+   (save: "zip", default for >10 images).
 
 Settings use the CLI's flag names, as a string or an object
 ({ format: "webp", quality: 75, "long-edge": 1600 }):
-  -f/--format webp|avif|jpeg|png|jxl|gif|tiff|bmp|ico|qoi|original
-  -q/--quality 0-100   --lossless   --effort n   --colors n   --background #hex
+  -f/--format webp|avif|jpeg|png|jxl|gif|tiff|bmp|ico|qoi|original (aliases: jpg, jpegxl, tif, keep)
+  -p/--preset web|compress|heic-jpeg|avif|favicon
+  -q/--quality 0-100 (defaults jpeg 82, webp 80, avif 60, jxl 75)   --lossless (webp, avif, jxl)
+  --effort n (png 0-6, webp 0-6, avif 0-10, jxl 1-9)   --colors n (png 0|2-256, gif 2-256)
+  --background #hex   --no-progressive   --ico-sizes 16,24,32,48,64,128,256   --force-reencode
   --long-edge px | --max-width px | --max-height px | --fit WxH | --scale %   --upscale
+  --resize-method lanczos3|mitchell|catrom|triangle
   --rename "{name}-{n:3}"  (tokens {name} {n} {n:3} {w} {h} {date} {fmt})   --start-at n
-  --keep-exif  --keep-gps  --force-reencode  -p/--preset web|compress|heic-jpeg|avif|favicon
-The same names work in the link: /?f=webp&q=75&long-edge=1600 (this visit only).
+  --keep-exif  --keep-gps  --flat  --conflict rename|overwrite|skip  --workers 1-64
+The same names work in the URL: /?f=webp&q=75&long-edge=1600 (applies for this visit only).
 
 Other calls: justImageThings.files(), .clear(), .settings(), .configure(flags), .help
-Options for run(flags, { save: "files" | "zip", clear: false }).`
+Options for run(flags, { save: "files" | "zip", clear: false }).
+WebMCP (navigator.modelContext): convert_images, list_queued_images.
+Full docs: /llms.txt and /llms-full.txt · Test image generator: /generate`
 
 interface RunOptions {
   save?: 'files' | 'zip'

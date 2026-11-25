@@ -1,0 +1,17 @@
+{
+  "name": "just image things",
+  "short_name": "just image things",
+  "description": "Batch convert, compress, resize, rename, and generate images locally in your browser with WebAssembly. Nothing is uploaded.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111315",
+  "theme_color": "#00ab98",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # just image things
 
-Batch convert, compress, resize and rename images in the browser. Everything runs locally with WebAssembly, so nothing is uploaded.
+Batch convert, compress, resize, rename, and generate images in the browser at [image.ruxera.com](https://image.ruxera.com). Everything runs locally with WebAssembly, so nothing is uploaded.
 
 A web rework of [`image-script.py`](https://github.com/irshadnazree/media-related-script/blob/main/image-script.py).
 
@@ -33,10 +33,16 @@ A web rework of [`image-script.py`](https://github.com/irshadnazree/media-relate
 - Output straight to a folder (Chromium), as a streamed ZIP, or as individual downloads.
 - Uses every core: a worker pool that shrinks itself if the browser runs out of memory.
 - Presets, built-in and your own, stored in the browser.
+- Shareable link settings (`?f=webp&q=75&long-edge=1600`) that apply for that visit only.
+- **Test image generator** ([`/generate`](https://image.ruxera.com/generate)): synthesize deterministic test images locally by dimensions (up to 8192×8192 / 40 MP), colour complexity, seed, format, and optional target file size (±10% search).
 
 ## Agents and the command line
 
-The same pipeline can run without the UI, so an AI agent (or a script) can process a folder for you. `bun run agent` builds the site, serves it on `127.0.0.1`, opens it in headless Chrome, Chromium, Edge or Brave, and writes the results to disk. Images still never leave your machine.
+AI agents and scripts can run the same pipeline either **in the browser** or **from the command line**:
+
+- **Browser scripting API & WebMCP**: open `https://image.ruxera.com/?f=webp&q=75&long-edge=1600`, attach files to `input#jit-files`, and evaluate `await window.justImageThings.run()` to receive a JSON report and download the results. Browsers supporting WebMCP (`navigator.modelContext`) also expose `convert_images` and `list_queued_images`.
+- **LLM documentation**: hosted at [`/llms.txt`](https://image.ruxera.com/llms.txt) and [`/llms-full.txt`](https://image.ruxera.com/llms-full.txt).
+- **Headless CLI**: `bun run agent` builds the site, serves it on `127.0.0.1`, opens it in headless Chrome, Chromium, Edge or Brave, and writes results straight to disk. Images still never leave your machine.
 
 ```sh
 bun run agent ~/Pictures/trip -f webp -q 75 --long-edge 2048
@@ -45,7 +51,7 @@ bun run agent shots/ -f avif --rename "{date}-{n:3}" --json   # JSON report on s
 bun run agent --help                                          # every option
 ```
 
-Output goes to `<folder>_processed` unless you pass `-o`. Originals are never touched. See [AGENTS.md](AGENTS.md) for how agents should map requests to flags.
+Output goes to `<folder>_processed` unless you pass `-o`. Originals are never touched. See [AGENTS.md](AGENTS.md) for the full agent guide and flag mapping.
 
 ## Development
 

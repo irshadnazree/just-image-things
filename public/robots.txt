@@ -1,0 +1,9 @@
+# Allow traditional search engines and AI search/agent crawlers.
+# LLM documentation:
+#   https://image.ruxera.com/llms.txt
+#   https://image.ruxera.com/llms-full.txt
+
+User-agent: *
+Allow: /
+
+Sitemap: https://image.ruxera.com/sitemap.xml
