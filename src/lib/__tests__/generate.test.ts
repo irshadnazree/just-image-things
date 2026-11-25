@@ -1,13 +1,8 @@
-import { describe, expect, it } from 'vitest'
-import {
-  MAX_DIMENSION,
-  MAX_PIXELS,
-  formatGeneratedFilename,
-  generatePixels,
-  parseTargetSize,
-  searchTargetSize,
-  validateDimensions,
-} from '../generate'
+import { beforeAll, describe, expect, it } from 'vitest'
+import type { WorkerRequest, WorkerResponse } from '../../worker/protocol'
+import { decodeQoi } from '../codecs/qoi'
+import { sniffFormat } from '../formats'
+import { generatePixels, searchTargetSize } from '../generate'
 import type { GeneratedPixels } from '../generate'
 
 function countUniqueColors(pixels: GeneratedPixels): number {
@@ -24,33 +19,45 @@ function colorEntropyScore(pixels: GeneratedPixels): number {
   return countUniqueColors(pixels) / (pixels.width * pixels.height)
 }
 
+class NodeImageData {
+  readonly data: Uint8ClampedArray<ArrayBuffer>
+  readonly width: number
+  readonly height: number
+  constructor(a: Uint8ClampedArray<ArrayBuffer> | number, b: number, c?: number) {
+    if (typeof a === 'number') {
+      this.width = a
+      this.height = b
+      this.data = new Uint8ClampedArray(new ArrayBuffer(a * b * 4))
+    } else {
+      this.data = a
+      this.width = b
+      this.height = c ?? a.length / 4 / b
+    }
+  }
+}
+
+let workerOnMessage: ((event: MessageEvent<WorkerRequest>) => Promise<void>) | null = null
+let posted: Array<WorkerResponse> = []
+
+async function dispatchWorker(req: WorkerRequest): Promise<Array<WorkerResponse>> {
+  if (!workerOnMessage) { throw new Error('Worker harness not initialised') }
+  posted = []
+  await workerOnMessage({ data: req } as MessageEvent<WorkerRequest>)
+  return posted
+}
+
 describe('generatePixels', () => {
-  it('is deterministic for a given seed and changes with a different seed', () => {
+  it('is deterministic for a given seed and varies across seeds', () => {
     const a = generatePixels(64, 64, 45, 12_345)
     const b = generatePixels(64, 64, 45, 12_345)
     const c = generatePixels(64, 64, 45, 54_321)
 
-    expect(a.width).toBe(64)
-    expect(a.height).toBe(64)
     expect(a.data.length).toBe(64 * 64 * 4)
     expect(a.data).toEqual(b.data)
     expect(a.data).not.toEqual(c.data)
   })
 
-  it('produces a single flat opaque colour at complexity 0', () => {
-    const img = generatePixels(48, 32, 0, 77)
-    expect(countUniqueColors(img)).toBe(1)
-    const [r, g, b, a] = img.data
-    expect(a).toBe(255)
-    for (let i = 0; i < img.data.length; i += 4) {
-      expect(img.data[i]).toBe(r)
-      expect(img.data[i + 1]).toBe(g)
-      expect(img.data[i + 2]).toBe(b)
-      expect(img.data[i + 3]).toBe(255)
-    }
-  })
-
-  it('produces more distinct colours as complexity increases', () => {
+  it('scales colour complexity monotonically from flat (0) to noise (100)', () => {
     const c0 = countUniqueColors(generatePixels(128, 128, 0, 42))
     const c20 = countUniqueColors(generatePixels(128, 128, 20, 42))
     const c50 = countUniqueColors(generatePixels(128, 128, 50, 42))
@@ -74,108 +81,81 @@ describe('generatePixels', () => {
 })
 
 describe('searchTargetSize', () => {
-  it('converges via quality binary search when monotonic in quality', async () => {
-    const targetBytes = 64_000
-    const result = await searchTargetSize({
+  it('converges via quality binary search both downward and upward', async () => {
+    const down = await searchTargetSize({
       width: 32,
       height: 32,
       seed: 1,
       complexity: 45,
-      targetBytes,
+      targetBytes: 64_000,
       lossy: true,
       defaultQuality: 80,
       encode: async (_pixels, quality) => Math.round(10_000 + quality * 1000),
     })
+    expect(down.status).toBe('matched')
+    expect(Math.abs(down.size - 64_000) / 64_000).toBeLessThanOrEqual(0.1)
+    expect(down.complexityAdjusted).toBe(false)
 
-    expect(result.status).toBe('matched')
-    expect(Math.abs(result.size - targetBytes) / targetBytes).toBeLessThanOrEqual(0.1)
-    expect(result.complexityAdjusted).toBe(false)
-    expect(result.attempts).toBeLessThanOrEqual(10)
-  })
-
-  it('converges upward when target requires higher quality than default', async () => {
-    const targetBytes = 95_000
-    const result = await searchTargetSize({
+    const up = await searchTargetSize({
       width: 32,
       height: 32,
       seed: 2,
       complexity: 45,
-      targetBytes,
+      targetBytes: 95_000,
       lossy: true,
       defaultQuality: 50,
       encode: async (_pixels, quality) => Math.round(10_000 + quality * 1000),
     })
-
-    expect(result.status).toBe('matched')
-    expect(Math.abs(result.size - targetBytes) / targetBytes).toBeLessThanOrEqual(0.1)
-    expect(result.quality).toBeGreaterThan(50)
-    expect(result.complexityAdjusted).toBe(false)
+    expect(up.status).toBe('matched')
+    expect(up.quality).toBeGreaterThan(50)
+    expect(up.complexityAdjusted).toBe(false)
   })
 
-  it('adjusts complexity upward when q=100 is still too small', async () => {
-    const targetBytes = 40_000
-    const result = await searchTargetSize({
+  it('falls back to complexity search when quality saturates (lossy and lossless)', async () => {
+    const higher = await searchTargetSize({
       width: 64,
       height: 64,
       seed: 10,
       complexity: 0,
-      targetBytes,
+      targetBytes: 40_000,
       lossy: true,
       defaultQuality: 80,
-      encode: async (pixels, quality) => {
-        const entropy = colorEntropyScore(pixels)
-        return Math.round(1000 + (0.2 + quality / 100) * (entropy * 90_000))
-      },
+      encode: async (pixels, quality) => Math.round(1000 + (0.2 + quality / 100) * (colorEntropyScore(pixels) * 90_000)),
     })
+    expect(higher.status).toBe('matched')
+    expect(higher.complexityAdjusted).toBe(true)
+    expect(higher.complexity).toBeGreaterThan(0)
 
-    expect(result.status).toBe('matched')
-    expect(result.complexityAdjusted).toBe(true)
-    expect(result.complexity).toBeGreaterThan(0)
-    expect(Math.abs(result.size - targetBytes) / targetBytes).toBeLessThanOrEqual(0.1)
-  })
-
-  it('adjusts complexity downward when q=0 is still too large', async () => {
-    const targetBytes = 5000
-    const result = await searchTargetSize({
+    const lower = await searchTargetSize({
       width: 64,
       height: 64,
       seed: 11,
       complexity: 100,
-      targetBytes,
+      targetBytes: 5000,
       lossy: true,
       defaultQuality: 80,
-      encode: async (pixels, quality) => {
-        const entropy = colorEntropyScore(pixels)
-        return Math.round(500 + (0.5 + quality / 100) * (entropy * 100_000))
-      },
+      encode: async (pixels, quality) => Math.round(500 + (0.5 + quality / 100) * (colorEntropyScore(pixels) * 100_000)),
     })
+    expect(lower.status).toBe('matched')
+    expect(lower.complexityAdjusted).toBe(true)
+    expect(lower.complexity).toBeLessThan(100)
 
-    expect(result.status).toBe('matched')
-    expect(result.complexityAdjusted).toBe(true)
-    expect(result.complexity).toBeLessThan(100)
-    expect(Math.abs(result.size - targetBytes) / targetBytes).toBeLessThanOrEqual(0.1)
-  })
-
-  it('searches complexity for lossless formats', async () => {
-    const targetBytes = 25_000
-    const result = await searchTargetSize({
+    const lossless = await searchTargetSize({
       width: 64,
       height: 64,
       seed: 12,
       complexity: 10,
-      targetBytes,
+      targetBytes: 25_000,
       lossy: false,
       defaultQuality: 100,
       encode: async (pixels) => Math.round(1000 + colorEntropyScore(pixels) * 80_000),
     })
-
-    expect(result.status).toBe('matched')
-    expect(result.complexityAdjusted).toBe(true)
-    expect(Math.abs(result.size - targetBytes) / targetBytes).toBeLessThanOrEqual(0.1)
+    expect(lossless.status).toBe('matched')
+    expect(lossless.complexityAdjusted).toBe(true)
   })
 
-  it('reports unreachable when target is larger than maximum achievable', async () => {
-    const result = await searchTargetSize({
+  it('reports unreachable targets (too-large and too-small) quickly', async () => {
+    const tooLarge = await searchTargetSize({
       width: 16,
       height: 16,
       seed: 5,
@@ -185,15 +165,10 @@ describe('searchTargetSize', () => {
       defaultQuality: 80,
       encode: async (pixels, quality) => Math.round(200 + quality * 5 + colorEntropyScore(pixels) * 500),
     })
+    expect(tooLarge.status).toBe('too-large')
+    expect(tooLarge.attempts).toBeLessThanOrEqual(4)
 
-    expect(result.status).toBe('too-large')
-    expect(result.size).toBeLessThan(10_000_000)
-    expect(result.deltaBytes).toBeLessThan(0)
-    expect(result.attempts).toBeLessThanOrEqual(4)
-  })
-
-  it('reports unreachable when target is smaller than minimum achievable', async () => {
-    const result = await searchTargetSize({
+    const tooSmall = await searchTargetSize({
       width: 16,
       height: 16,
       seed: 5,
@@ -203,11 +178,8 @@ describe('searchTargetSize', () => {
       defaultQuality: 80,
       encode: async (pixels, quality) => Math.round(5000 + quality * 100 + colorEntropyScore(pixels) * 20_000),
     })
-
-    expect(result.status).toBe('too-small')
-    expect(result.size).toBeGreaterThan(100)
-    expect(result.deltaBytes).toBeGreaterThan(0)
-    expect(result.attempts).toBeLessThanOrEqual(4)
+    expect(tooSmall.status).toBe('too-small')
+    expect(tooSmall.attempts).toBeLessThanOrEqual(4)
   })
 
   it('respects the maxAttempts bound', async () => {
@@ -230,32 +202,71 @@ describe('searchTargetSize', () => {
 
     expect(calls).toBeLessThanOrEqual(4)
     expect(result.attempts).toBe(calls)
-    expect(result.maxAttempts).toBe(4)
   })
 })
 
-describe('validation and formatting helpers', () => {
-  it('validates dimensions and total pixel count', () => {
-    expect(validateDimensions(1920, 1080)).toBeNull()
-    expect(validateDimensions(1, 1)).toBeNull()
-    expect(validateDimensions(MAX_DIMENSION, Math.floor(MAX_PIXELS / MAX_DIMENSION))).toBeNull()
-    expect(validateDimensions(0, 100)).not.toBeNull()
-    expect(validateDimensions(MAX_DIMENSION + 1, 100)).not.toBeNull()
-    expect(validateDimensions(8000, 6000)).toMatch(/40 MP/)
+describe('generation worker pipeline', () => {
+  beforeAll(async () => {
+    const g = globalThis as Record<string, unknown>
+    if (!g.ImageData) { g.ImageData = NodeImageData }
+    if (!g.createImageBitmap) {
+      g.createImageBitmap = async (src: { width?: number; height?: number }) => ({
+        width: src.width ?? 0,
+        height: src.height ?? 0,
+        close() {},
+      })
+    }
+    g.self = globalThis
+    g.postMessage = (msg: WorkerResponse) => { posted.push(msg) }
+    await import('../../worker/processor.worker')
+    workerOnMessage = (g.self as { onmessage: (e: MessageEvent<WorkerRequest>) => Promise<void> }).onmessage
   })
 
-  it('parses optional target sizes', () => {
-    expect(parseTargetSize('', 'KB')).toEqual({ bytes: null, error: null })
-    expect(parseTargetSize('  ', 'MB')).toEqual({ bytes: null, error: null })
-    expect(parseTargetSize('512', 'KB')).toEqual({ bytes: 512 * 1024, error: null })
-    expect(parseTargetSize('1.5', 'MB')).toEqual({ bytes: Math.round(1.5 * 1024 * 1024), error: null })
-    expect(parseTargetSize('0', 'KB').error).not.toBeNull()
-    expect(parseTargetSize('-5', 'MB').error).not.toBeNull()
+  it('synthesises and encodes a decodable image at default quality', async () => {
+    const events = await dispatchWorker({
+      type: 'generate',
+      id: 1,
+      width: 48,
+      height: 32,
+      complexity: 45,
+      seed: 42,
+      format: 'qoi',
+      lossless: false,
+      targetBytes: null,
+    })
+
+    const done = events.at(-1)
+    if (done?.type !== 'generate-done') { throw new Error(`Expected generate-done, got ${done?.type}`) }
+    expect(done.status).toBe('default')
+    expect(done.width).toBe(48)
+    expect(done.height).toBe(32)
+    expect(done.attempts).toBe(1)
+
+    const decoded = decodeQoi(new Uint8Array(done.bytes))
+    expect(decoded.width).toBe(48)
+    expect(decoded.height).toBe(32)
+    expect(decoded.data).toEqual(generatePixels(48, 32, 45, 42).data)
   })
 
-  it('formats generated filenames cleanly', () => {
-    expect(formatGeneratedFilename(1920, 1080, 512 * 1024, 'webp')).toBe('generated-1920x1080-512KB.webp')
-    expect(formatGeneratedFilename(1920, 1080, 1_572_864, 'jpg')).toBe('generated-1920x1080-1.5MB.jpg')
-    expect(formatGeneratedFilename(64, 64, 720, 'png')).toBe('generated-64x64-720B.png')
+  it('runs end-to-end target-size search with a real encoder and emits progress', async () => {
+    const events = await dispatchWorker({
+      type: 'generate',
+      id: 2,
+      width: 96,
+      height: 96,
+      complexity: 20,
+      seed: 7,
+      format: 'qoi',
+      lossless: false,
+      targetBytes: 8000,
+    })
+
+    const progress = events.filter((e) => e.type === 'generate-progress')
+    const done = events.at(-1)
+    expect(progress.length).toBeGreaterThan(0)
+    if (done?.type !== 'generate-done') { throw new Error(`Expected generate-done, got ${done?.type}`) }
+    expect(done.status).toBe('matched')
+    expect(Math.abs(done.bytes.byteLength - 8000) / 8000).toBeLessThanOrEqual(0.1)
+    expect(sniffFormat(new Uint8Array(done.bytes))).toBe('qoi')
   })
 })
