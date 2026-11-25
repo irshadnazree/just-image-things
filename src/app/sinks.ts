@@ -11,18 +11,31 @@ export interface Sink {
 }
 
 export const supportsFolderOutput = typeof window !== 'undefined' && 'showDirectoryPicker' in window
-const supportsSavePicker = typeof window !== 'undefined' && 'showSaveFilePicker' in window
+export const supportsSavePicker = typeof window !== 'undefined' && 'showSaveFilePicker' in window
 
 type PickerWindow = Window & {
-  showDirectoryPicker(opts?: { mode?: 'read' | 'readwrite'; id?: string }): Promise<FileSystemDirectoryHandle>
+  showDirectoryPicker(opts?: {
+    mode?: 'read' | 'readwrite'
+    id?: string
+    startIn?: FileSystemHandle
+  }): Promise<FileSystemDirectoryHandle>
   showSaveFilePicker(opts?: {
     suggestedName?: string
+    startIn?: FileSystemHandle
     types?: Array<{ description: string; accept: Record<string, Array<string>> }>
   }): Promise<FileSystemFileHandle>
 }
 
-export function pickOutputFolder(): Promise<FileSystemDirectoryHandle> {
-  return (window as unknown as PickerWindow).showDirectoryPicker({ mode: 'readwrite', id: 'output' })
+function startAt(startIn: FileSystemHandle | null | undefined) {
+  return startIn ? { startIn } : { id: 'output' }
+}
+
+/**
+ * A `startIn` file handle opens the dialog in that file's folder; a folder handle opens that folder.
+ * Without one it reopens the last folder picked for output.
+ */
+export function pickOutputFolder(startIn?: FileSystemHandle | null): Promise<FileSystemDirectoryHandle> {
+  return (window as unknown as PickerWindow).showDirectoryPicker({ mode: 'readwrite', ...startAt(startIn) })
 }
 
 export async function ensureWritable(handle: FileSystemDirectoryHandle): Promise<boolean> {
@@ -100,35 +113,81 @@ async function exists(dir: FileSystemDirectoryHandle, name: string): Promise<boo
   }
 }
 
-class AsyncQueue<T> implements AsyncIterable<T> {
-  private items: Array<T> = []
-  private waiting: ((r: IteratorResult<T>) => void) | null = null
-  private closed = false
+const MAX_ZIP_QUEUE = 4
 
-  push(item: T) {
+export class AsyncQueue<T> implements AsyncIterable<T> {
+  private items: Array<T> = []
+  private waiting: { resolve: (r: IteratorResult<T>) => void; reject: (err: unknown) => void } | null = null
+  private drainWaiters: Array<{ resolve: () => void; reject: (err: unknown) => void }> = []
+  private closed = false
+  private failed = false
+  private failure: unknown = null
+
+  async push(item: T): Promise<void> {
+    if (this.failed) { throw this.failure }
+    if (this.closed) { return }
     if (this.waiting) {
-      this.waiting({ value: item, done: false })
+      const waiter = this.waiting
       this.waiting = null
-    } else {
-      this.items.push(item)
+      waiter.resolve({ value: item, done: false })
+      return
+    }
+    this.items.push(item)
+    if (this.items.length >= MAX_ZIP_QUEUE) {
+      await new Promise<void>((resolve, reject) => {
+        this.drainWaiters.push({ resolve, reject })
+      })
+    }
+  }
+
+  private flushDrain() {
+    while (this.drainWaiters.length > 0 && (this.closed || this.items.length < MAX_ZIP_QUEUE)) {
+      const waiter = this.drainWaiters.shift()
+      waiter?.resolve()
+    }
+  }
+
+  fail(error: unknown) {
+    if (this.failed) { return }
+    this.failed = true
+    this.failure = error
+    this.closed = true
+    this.items = []
+    const consumer = this.waiting
+    this.waiting = null
+    consumer?.reject(error)
+    const waiters = this.drainWaiters.splice(0)
+    for (const waiter of waiters) {
+      waiter.reject(error)
     }
   }
 
   close() {
+    if (this.closed) { return }
     this.closed = true
-    this.waiting?.({ value: undefined, done: true })
+    const consumer = this.waiting
     this.waiting = null
+    consumer?.resolve({ value: undefined, done: true })
+    this.flushDrain()
   }
 
   [Symbol.asyncIterator](): AsyncIterator<T> {
     return {
       next: () => {
+        if (this.failed) { return Promise.reject(this.failure) }
         const item = this.items.shift()
-        if (item !== undefined) { return Promise.resolve({ value: item, done: false }) }
+        if (item !== undefined) {
+          this.flushDrain()
+          return Promise.resolve({ value: item, done: false })
+        }
         if (this.closed) { return Promise.resolve({ value: undefined, done: true }) }
-        return new Promise((resolve) => {
-          this.waiting = resolve
+        return new Promise((resolve, reject) => {
+          this.waiting = { resolve, reject }
         })
+      },
+      return: () => {
+        this.close()
+        return Promise.resolve({ value: undefined, done: true })
       },
     }
   }
@@ -142,50 +201,63 @@ export class ZipSink implements Sink {
   readonly kind = 'zip'
   private queue = new AsyncQueue<{ name: string; input: ArrayBuffer; lastModified: Date }>()
   private done: Promise<void>
+  private hasDoneError = false
+  private doneError: unknown = null
   private abortController = new AbortController()
 
   private constructor(fileName: string, target: FileSystemFileHandle | null) {
     const response = downloadZip(this.queue, { buffersAreUTF8: true })
     const body = response.body
-    if (target && body) {
-      this.done = target
-        .createWritable()
-        .then((w) => body.pipeTo(w, { signal: this.abortController.signal }))
-    } else {
-      this.done = response.blob().then((blob) => {
-        if (!this.abortController.signal.aborted) { triggerDownload(blob, fileName) }
-      })
-    }
+    const sinkPromise =
+      target && body
+        ? target
+            .createWritable()
+            .then((w) => body.pipeTo(w, { signal: this.abortController.signal }))
+        : response.blob().then((blob) => {
+            if (!this.abortController.signal.aborted) { triggerDownload(blob, fileName) }
+          })
+    this.done = sinkPromise.catch((error: unknown) => {
+      this.hasDoneError = true
+      this.doneError = error
+      this.queue.fail(error)
+    })
   }
 
   /**
    * Must be called from a click handler, before any other await, so the save dialog is allowed.
    * Without `usePicker` the zip is always a plain download (scripted runs have no click to use).
    */
-  static async create(fileName: string, usePicker = true): Promise<ZipSink> {
+  static async create(fileName: string, usePicker = true, startIn?: FileSystemHandle | null): Promise<ZipSink> {
     let target: FileSystemFileHandle | null = null
     if (usePicker && supportsSavePicker) {
-      target = await (window as unknown as PickerWindow).showSaveFilePicker({
+      const opts: Parameters<PickerWindow['showSaveFilePicker']>[0] = {
         suggestedName: fileName,
         types: [{ description: 'ZIP archive', accept: { 'application/zip': ['.zip'] } }],
-      })
+      }
+      if (startIn) { opts.startIn = startIn }
+      target = await (window as unknown as PickerWindow).showSaveFilePicker(opts)
     }
     return new ZipSink(fileName, target)
   }
 
+  static fromHandle(fileName: string, target: FileSystemFileHandle | null): ZipSink {
+    return new ZipSink(fileName, target)
+  }
+
   async write(path: string, data: ArrayBuffer): Promise<WriteOutcome> {
-    this.queue.push({ name: path, input: data, lastModified: new Date() })
+    await this.queue.push({ name: path, input: data, lastModified: new Date() })
     return { path, skipped: false }
   }
 
   async finish() {
     this.queue.close()
     await this.done
+    if (this.hasDoneError) { throw this.doneError }
   }
 
   abort() {
     this.abortController.abort()
-    this.queue.close()
+    this.queue.fail(new DOMException('ZIP export aborted.', 'AbortError'))
   }
 }
 

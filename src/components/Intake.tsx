@@ -1,6 +1,14 @@
 import { Button } from '@irshadnazree/just-things-ui'
 import { useEffect, useRef, useState } from 'react'
-import { filesFromDataTransfer, filesFromList } from '../app/intake'
+import {
+  filesFromDataTransfer,
+  filesFromList,
+  pickImageFiles,
+  pickImageFolder,
+  sourceHandleFromDataTransfer,
+  supportsOpenPickers,
+} from '../app/intake'
+import type { PickedFiles } from '../app/intake'
 import { useStore } from '../app/store'
 import { ACCEPT_ATTR } from '../lib/formats'
 
@@ -12,6 +20,16 @@ export function AddButtons({ compact, disabled }: { compact?: boolean; disabled?
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) { addFiles(filesFromList(e.target.files)) }
     e.target.value = ''
+  }
+
+  const openPicker = (picker: () => Promise<PickedFiles>, fallback: HTMLInputElement | null) => {
+    if (!supportsOpenPickers) {
+      fallback?.click()
+      return
+    }
+    picker().then(({ files, source }) => addFiles(files, source), (error: unknown) => {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) { fallback?.click() }
+    })
   }
 
   return (
@@ -28,7 +46,7 @@ export function AddButtons({ compact, disabled }: { compact?: boolean; disabled?
         size={compact ? 'sm' : 'md'}
         variant={compact ? 'ghost' : 'primary'}
         disabled={disabled}
-        onClick={() => filesInput.current?.click()}
+        onClick={() => openPicker(pickImageFiles, filesInput.current)}
       >
         Add files
       </Button>
@@ -36,7 +54,7 @@ export function AddButtons({ compact, disabled }: { compact?: boolean; disabled?
         size={compact ? 'sm' : 'md'}
         variant={compact ? 'ghost' : 'secondary'}
         disabled={disabled}
-        onClick={() => folderInput.current?.click()}
+        onClick={() => openPicker(pickImageFolder, folderInput.current)}
       >
         Add folder
       </Button>
@@ -73,7 +91,10 @@ export function DropOverlay() {
       e.preventDefault()
       depth.current = 0
       setActive(false)
-      if (!running && e.dataTransfer) { void filesFromDataTransfer(e.dataTransfer).then(addFiles) }
+      if (!running && e.dataTransfer) {
+        const source = sourceHandleFromDataTransfer(e.dataTransfer)
+        void Promise.all([filesFromDataTransfer(e.dataTransfer), source]).then(([files, handle]) => addFiles(files, handle))
+      }
     }
     const paste = (e: ClipboardEvent) => {
       const target = e.target as HTMLElement | null

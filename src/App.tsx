@@ -34,6 +34,9 @@ export default function App() {
             <a href="/generate" onClick={(e) => handleNavClick(e, '/generate')}>
               Generate
             </a>
+            <a href="/image-preview" onClick={(e) => handleNavClick(e, '/image-preview')}>
+              Video frames
+            </a>
             <a href="https://github.com/irshadnazree/just-image-things" target="_blank" rel="noreferrer">
               Source
             </a>

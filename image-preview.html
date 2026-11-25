@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video Frame Extractor &amp; Parser — just image things</title>
+    <meta
+      name="description"
+      content="Extract and preview every frame of a video locally in your browser with hardware-accelerated WebCodecs. Copy single frames or batch download selected frames as PNG, WebP, or JPEG."
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="theme-color" content="#00ab98" />
+    <link rel="canonical" href="https://image.ruxera.com/image-preview" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="alternate" type="text/plain" title="LLM Documentation (llms.txt)" href="https://image.ruxera.com/llms.txt" />
+    <link rel="alternate" type="text/plain" title="Complete LLM Documentation (llms-full.txt)" href="https://image.ruxera.com/llms-full.txt" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="just image things" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://image.ruxera.com/image-preview" />
+    <meta property="og:title" content="Video Frame Extractor &amp; Parser — just image things" />
+    <meta
+      property="og:description"
+      content="Inspect every frame of a video locally in your browser using hardware-accelerated WebCodecs. Copy any frame or download selected frames at full resolution — nothing is uploaded."
+    />
+    <meta property="og:image" content="https://image.ruxera.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="just image things — local WebCodecs video frame extractor and previewer" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Video Frame Extractor &amp; Parser — just image things" />
+    <meta
+      name="twitter:description"
+      content="Inspect every frame of a video locally in your browser using hardware-accelerated WebCodecs. Copy any frame or download selected frames at full resolution — nothing is uploaded."
+    />
+    <meta name="twitter:image" content="https://image.ruxera.com/og-image.png" />
+    <meta name="twitter:image:alt" content="just image things — local WebCodecs video frame extractor and previewer" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "@id": "https://image.ruxera.com/image-preview#app",
+            "name": "just image things — Video Frame Extractor",
+            "url": "https://image.ruxera.com/image-preview",
+            "description": "High-performance local video parser and frame extractor using hardware-accelerated WebCodecs in a Web Worker. Inspect all frames of MP4, MOV, WebM, and MKV videos, copy any frame to clipboard, or batch download selected frames at full resolution.",
+            "applicationCategory": "MultimediaApplication",
+            "applicationSubCategory": "Video Frame Extractor",
+            "operatingSystem": "Any",
+            "browserRequirements": "Requires JavaScript (WebCodecs recommended for hardware acceleration)",
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "image": "https://image.ruxera.com/og-image.png",
+            "featureList": [
+              "Hardware-accelerated WebCodecs decoding in a Web Worker with zero file uploads",
+              "Streaming thumbnail extraction and virtualized grid for smooth browsing of thousands of frames",
+              "Extract all frames, keyframes only, fixed FPS, every Nth frame, or custom time ranges",
+              "One-click full-resolution clipboard copy (PNG) for any frame",
+              "Multi-select with Shift+click range selection and batch export to ZIP, folder, or individual PNG/WebP/JPEG files"
+            ],
+            "isPartOf": {
+              "@id": "https://image.ruxera.com/#website"
+            }
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "just image things",
+                "item": "https://image.ruxera.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Video Frame Extractor",
+                "item": "https://image.ruxera.com/image-preview"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+
+    <!-- Stored theme on <html> before first paint. Same string as themeScript from just-things-ui. -->
+    <script>
+      (function(){try{var t=localStorage.getItem("jt-theme");if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <main style="max-width:48rem;margin:2rem auto;padding:0 1.25rem;font-family:system-ui,sans-serif;line-height:1.6">
+        <h1>Video Frame Extractor &amp; Parser — just image things</h1>
+        <p>
+          Inspect every frame of a video locally in your browser using hardware-accelerated WebCodecs. Copy single
+          frames or batch download selected frames at full resolution — nothing is ever uploaded.
+        </p>
+        <p><strong>JavaScript is required to run the interactive video frame extractor.</strong></p>
+        <p>
+          <a href="/">Batch Image Converter</a> ·
+          <a href="/generate">Test Image Generator</a> ·
+          <a href="https://github.com/irshadnazree/just-image-things">Source Code on GitHub</a>
+        </p>
+      </main>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

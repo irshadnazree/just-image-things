@@ -1,4 +1,4 @@
-import { isGeneratePath } from './router'
+import { isGeneratePath, isImagePreviewPath } from './router'
 
 const SITE_ORIGIN = 'https://image.ruxera.com'
 
@@ -27,8 +27,19 @@ export const GENERATE_SEO: RouteSeo = {
     'Generate deterministic test images locally in your browser by dimensions, colour complexity, seed, format, and target file size. Nothing is uploaded.',
 }
 
+export const IMAGE_PREVIEW_SEO: RouteSeo = {
+  title: 'Video Frame Extractor & Parser — just image things',
+  description:
+    'Extract and preview every frame of a video locally in your browser with hardware-accelerated WebCodecs. Copy single frames or batch download selected frames as PNG, WebP, or JPEG.',
+  canonical: `${SITE_ORIGIN}/image-preview`,
+  ogDescription:
+    'Inspect every frame of a video locally in your browser using hardware-accelerated WebCodecs. Copy any frame or download selected frames at full resolution — nothing is uploaded.',
+}
+
 export function seoForPath(pathname: string): RouteSeo {
-  return isGeneratePath(pathname) ? GENERATE_SEO : HOME_SEO
+  if (isGeneratePath(pathname)) { return GENERATE_SEO }
+  if (isImagePreviewPath(pathname)) { return IMAGE_PREVIEW_SEO }
+  return HOME_SEO
 }
 
 function setMeta(selector: string, content: string) {

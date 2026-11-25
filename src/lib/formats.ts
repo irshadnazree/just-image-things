@@ -53,7 +53,7 @@ export const INPUT_LABELS: Record<InputFormat, string> = {
   svg: 'SVG',
 }
 
-const EXTENSION_MAP: Record<string, InputFormat> = {
+export const EXTENSION_MAP: Record<string, InputFormat> = {
   jpg: 'jpeg',
   jpeg: 'jpeg',
   jpe: 'jpeg',
