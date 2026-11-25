@@ -10,6 +10,8 @@ export interface ProcessRequest {
   settings: Settings
   /** Pre-rasterised PNG for SVG input (SVG needs the DOM, which workers lack). */
   raster?: Blob
+  /** Hint for multi-threaded WASM codecs (>1 enables MT when cross-origin isolated). */
+  mtThreads?: number
 }
 
 export interface PreviewRequest extends Omit<ProcessRequest, 'type'> {

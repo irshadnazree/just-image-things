@@ -2,9 +2,9 @@
 import { spawn, spawnSync } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { createReadStream, existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
 import type { Stats } from 'node:fs'
-import { lstat, mkdir, open, realpath, rename, rm } from 'node:fs/promises'
+import { lstat, mkdir, open, readFile, realpath, rename, rm } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -292,11 +292,35 @@ function readBody(req: IncomingMessage): Promise<Buffer> {
   })
 }
 
-function serveStatic(pathname: string, res: ServerResponse) {
+const ISOLATION_HEADERS = {
+  'cross-origin-opener-policy': 'same-origin',
+  'cross-origin-embedder-policy': 'require-corp',
+  'cross-origin-resource-policy': 'same-origin',
+} as const
+
+const staticCache = new Map<string, { body: Buffer; contentType: string; cacheControl: string }>()
+
+async function serveStatic(pathname: string, res: ServerResponse) {
   let file = resolve(SITE_DIR, `.${decodeURIComponent(pathname)}`)
   if (!file.startsWith(SITE_DIR + sep) || !existsSync(file) || statSync(file).isDirectory()) { file = join(SITE_DIR, 'index.html') }
-  res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream', 'cache-control': 'no-store' })
-  createReadStream(file).pipe(res)
+  let entry = staticCache.get(file)
+  if (!entry) {
+    const isAsset = file.startsWith(join(SITE_DIR, 'assets') + sep)
+    entry = {
+      body: await readFile(file),
+      contentType: MIME[extname(file)] ?? 'application/octet-stream',
+      cacheControl: isAsset ? 'public, max-age=3600, immutable' : 'no-store',
+    }
+    staticCache.set(file, entry)
+  }
+  res
+    .writeHead(200, {
+      ...ISOLATION_HEADERS,
+      'content-type': entry.contentType,
+      'content-length': entry.body.byteLength,
+      'cache-control': entry.cacheControl,
+    })
+    .end(entry.body)
 }
 
 interface FileReport {
@@ -425,7 +449,7 @@ async function run(opts: CliOptions): Promise<number> {
   const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     try {
       const url = new URL(req.url ?? '/', 'http://127.0.0.1')
-      if (!url.pathname.startsWith('/__agent/')) { return serveStatic(url.pathname, res) }
+      if (!url.pathname.startsWith('/__agent/')) { return await serveStatic(url.pathname, res) }
       if (req.headers[AGENT_TOKEN_HEADER] !== token) {
         res.writeHead(403).end('Bad token')
         return
@@ -433,15 +457,18 @@ async function run(opts: CliOptions): Promise<number> {
       const route = url.pathname.slice('/__agent/'.length)
       if (route === 'job' && req.method === 'GET') {
         jobFetched = true
-        res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(job))
+        res.writeHead(200, { ...ISOLATION_HEADERS, 'content-type': 'application/json' }).end(JSON.stringify(job))
       } else if (route.startsWith('file/') && req.method === 'GET') {
         const file = files[Number(route.slice(5))]
         if (!file) { return void res.writeHead(404).end('No such file') }
-        res.writeHead(200, {
-          'content-type': IMAGE_MIME[extname(file.name).toLowerCase()] ?? 'application/octet-stream',
-          'content-length': file.size,
-        })
-        createReadStream(file.abs).pipe(res)
+        const body = await readFile(file.abs)
+        res
+          .writeHead(200, {
+            ...ISOLATION_HEADERS,
+            'content-type': IMAGE_MIME[extname(file.name).toLowerCase()] ?? 'application/octet-stream',
+            'content-length': body.byteLength,
+          })
+          .end(body)
       } else if (route === 'out' && req.method === 'PUT') {
         const reply = await writeOutput(
           outRoot,
@@ -450,10 +477,10 @@ async function run(opts: CliOptions): Promise<number> {
           settings.output.conflict,
           inputIds,
         )
-        res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(reply))
+        res.writeHead(200, { ...ISOLATION_HEADERS, 'content-type': 'application/json' }).end(JSON.stringify(reply))
       } else if (route === 'event' && req.method === 'POST') {
         handleEvent(JSON.parse((await readBody(req)).toString('utf8')) as AgentEvent)
-        res.writeHead(204).end()
+        res.writeHead(204, ISOLATION_HEADERS).end()
       } else {
         res.writeHead(404).end('Unknown route')
       }

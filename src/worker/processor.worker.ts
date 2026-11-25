@@ -9,6 +9,7 @@ import { resizeImage } from './resize'
 import type { ErrorResult, PreviewRequest, PreviewResult, ProcessRequest, ProcessResult, WorkerRequest } from './protocol'
 
 const OOM_PATTERN = /memory|allocation|out of bounds|aborted\(|array buffer|invalid array length/i
+const SNIFF_BYTES = 4096
 
 function keepOriginal(bytes: Uint8Array, isJpeg: boolean, metadata: { keepExif: boolean; stripGps: boolean }): ArrayBuffer {
   if (!isJpeg) { return bytes.buffer as ArrayBuffer }
@@ -23,28 +24,60 @@ function keepOriginal(bytes: Uint8Array, isJpeg: boolean, metadata: { keepExif: 
 async function run(req: ProcessRequest | PreviewRequest) {
   const started = performance.now()
   const { settings } = req
-  const buffer = await req.file.arrayBuffer()
-  const bytes = new Uint8Array(buffer)
-  const inputFormat = sniffFormat(bytes, req.name)
+
+  let fullBuffer: ArrayBuffer | null = null
+  let fullBytes: Uint8Array | null = null
+  const getFullBuffer = async (): Promise<ArrayBuffer> => {
+    if (!fullBuffer) {
+      fullBuffer = await req.file.arrayBuffer()
+      fullBytes = new Uint8Array(fullBuffer)
+    }
+    return fullBuffer
+  }
+  const getFullBytes = async (): Promise<Uint8Array> => {
+    if (!fullBytes) {
+      const buf = await getFullBuffer()
+      fullBytes = new Uint8Array(buf)
+    }
+    return fullBytes
+  }
+
+  let headBytes: Uint8Array
+  if (req.file.size <= SNIFF_BYTES) {
+    headBytes = await getFullBytes()
+  } else {
+    headBytes = new Uint8Array(await req.file.slice(0, SNIFF_BYTES).arrayBuffer())
+  }
+  const inputFormat = sniffFormat(headBytes, req.name)
   if (!inputFormat) { throw new Error('Unrecognised image format') }
 
-  const decodeSource = req.raster ?? req.file
-  const decodeBuffer = req.raster ? await req.raster.arrayBuffer() : buffer
-  let img = await decodeImage(req.raster ? 'png' : inputFormat, decodeSource, decodeBuffer)
+  const raster = req.raster
+  const decodeSource = raster ?? req.file
+  const decodeBuffer = raster ? () => raster.arrayBuffer() : getFullBuffer
+  let img = await decodeImage(raster ? 'png' : inputFormat, decodeSource, decodeBuffer)
   const sourceWidth = img.width
   const sourceHeight = img.height
   const before = req.type === 'preview' ? await createImageBitmap(img) : null
 
-  const format = resolveOutputFormat(settings.format, inputFormat, hasAlpha(img))
-  if (format !== 'ico' && !req.raster) {
-    const size = targetSize(img.width, img.height, settings.resize)
-    if (size) { img = await resizeImage(img, size.width, size.height, settings.resize.method) }
+  const knownOpaqueInput = inputFormat === 'jpeg'
+  let alpha: boolean | undefined = knownOpaqueInput ? false : undefined
+  const getAlpha = () => {
+    if (alpha === undefined) { alpha = hasAlpha(img) }
+    return alpha
   }
 
-  let out = await encodeImage(format, img, settings)
+  const format = resolveOutputFormat(settings.format, inputFormat, false)
+
+  if (format !== 'ico' && !req.raster) {
+    const size = targetSize(img.width, img.height, settings.resize)
+    if (size) { img = await resizeImage(img, size.width, size.height, settings.resize.method, getAlpha()) }
+  }
+
+  const mtThreads = req.type === 'preview' ? Math.max(2, Math.min(8, navigator.hardwareConcurrency || 4)) : req.mtThreads
+  let out = await encodeImage(format, img, settings, { alpha, mtThreads })
 
   if (settings.metadata.keepExif && inputFormat === 'jpeg' && format === 'jpeg') {
-    const segment = extractExifSegment(bytes)
+    const segment = extractExifSegment(await getFullBytes())
     if (segment) {
       patchExifSegment(segment, {
         width: img.width,
@@ -57,16 +90,21 @@ async function run(req: ProcessRequest | PreviewRequest) {
   }
 
   const unchangedSize = img.width === sourceWidth && img.height === sourceHeight
-  // WARNING: a rotated JPEG can't drop its EXIF without turning sideways, so it must be re-encoded.
-  const rotatedJpeg =
-    inputFormat === 'jpeg' && !settings.metadata.keepExif && readOrientation(extractExifSegment(bytes)) !== 1
-  const keptOriginal =
+  let keptOriginal = false
+  if (
+    req.type === 'process' &&
     settings.output.skipIfLarger &&
     format === inputFormat &&
     unchangedSize &&
-    !rotatedJpeg &&
-    out.byteLength >= buffer.byteLength &&
-    req.type === 'process'
+    out.byteLength >= req.file.size
+  ) {
+    // WARNING: a rotated JPEG can't drop its EXIF without turning sideways, so it must be re-encoded.
+    const rotatedJpeg =
+      inputFormat === 'jpeg' &&
+      !settings.metadata.keepExif &&
+      readOrientation(extractExifSegment(await getFullBytes())) !== 1
+    keptOriginal = !rotatedJpeg
+  }
 
   const meta = {
     id: req.id,
@@ -95,7 +133,7 @@ async function run(req: ProcessRequest | PreviewRequest) {
   }
 
   const outBuffer = keptOriginal
-    ? keepOriginal(bytes, inputFormat === 'jpeg', settings.metadata)
+    ? keepOriginal(await getFullBytes(), inputFormat === 'jpeg', settings.metadata)
     : out.byteOffset === 0 && out.byteLength === out.buffer.byteLength
       ? (out.buffer as ArrayBuffer)
       : (out.slice().buffer)

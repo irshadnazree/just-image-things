@@ -15,6 +15,8 @@ export interface BatchInput {
   name: string
   /** The bytes, or a loader so a large batch is read from disk only as workers free up. */
   file: Blob | (() => Promise<Blob>)
+  /** Optional byte size hint used to schedule larger images first when `file` is lazy. */
+  size?: number
 }
 
 export interface BatchOutput {
@@ -42,6 +44,28 @@ export interface BatchRun {
   cancel: () => void
 }
 
+function chooseThreading(settings: Settings, count: number, poolLimit: number): { lanes: number; mtThreads: number } {
+  const canMt = Boolean(globalThis.crossOriginIsolated) && typeof SharedArrayBuffer !== 'undefined'
+  const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4
+  if (canMt && cores >= 2 && count > 0) {
+    if (settings.format === 'avif' && count <= 4) {
+      const workers = Math.min(poolLimit, count === 1 ? 1 : 2)
+      return { lanes: Math.min(count, workers), mtThreads: cores }
+    }
+    if (settings.format === 'jxl') {
+      const maxWorkers = Math.max(4, Math.floor(cores / 2))
+      const workers = Math.min(poolLimit, count === 1 ? 1 : Math.min(count, maxWorkers))
+      return { lanes: Math.min(count, workers), mtThreads: cores }
+    }
+    if (settings.format === 'png' && settings.effort.png > 0 && count <= 2) {
+      const workers = Math.min(poolLimit, count)
+      const threads = Math.max(2, Math.floor(cores / workers))
+      return { lanes: workers, mtThreads: threads }
+    }
+  }
+  return { lanes: Math.min(Math.max(1, count), poolLimit + 2), mtThreads: 1 }
+}
+
 /**
  * Process a batch through a worker pool into a sink. Shared by the UI and agent mode
  * so both name, place and encode files the same way.
@@ -57,7 +81,15 @@ export function runBatch(
   const stripRoot = commonRoot(inputs.map((i) => i.relPath)) !== null
   const date = new Date()
   let cancelled = false
-  let nextIndex = 0
+
+  const order = inputs.map((input, index) => ({
+    index,
+    size: input.size ?? (typeof input.file === 'function' ? 0 : input.file.size),
+  }))
+  order.sort((a, b) => b.size - a.size || a.index - b.index)
+
+  const { lanes, mtThreads } = chooseThreading(settings, inputs.length, pool.limit)
+  let nextPos = 0
 
   const processOne = async (input: BatchInput, index: number) => {
     handlers.onStart?.(index)
@@ -65,7 +97,15 @@ export function runBatch(
       const file = typeof input.file === 'function' ? await input.file() : input.file
       const isSvg = /\.svg$/i.test(input.name)
       const raster = isSvg ? await rasterizeSvg(file, settings) : undefined
-      const res = await pool.run({ type: 'process', id: index, file, name: input.name, settings, raster })
+      const res = await pool.run({
+        type: 'process',
+        id: index,
+        file,
+        name: input.name,
+        settings,
+        raster,
+        mtThreads,
+      })
       const info = FORMAT_BY_ID[res.format]
       const base = renderName(settings.rename.template, {
         original: input.name,
@@ -97,21 +137,21 @@ export function runBatch(
   }
 
   const lane = async () => {
-    while (!cancelled && nextIndex < inputs.length) {
-      const index = nextIndex++
+    while (!cancelled && nextPos < order.length) {
+      const index = order[nextPos++].index
       await processOne(inputs[index], index)
     }
   }
 
-  const done = Promise.all(Array.from({ length: pool.limit + 2 }, lane)).then(() => ({ cancelled }))
+  const done = Promise.all(Array.from({ length: lanes }, lane)).then(() => ({ cancelled }))
 
   return {
     done,
     cancel() {
       if (cancelled) { return }
       cancelled = true
-      for (let i = nextIndex; i < inputs.length; i++) { handlers.onCancelled?.(i) }
-      nextIndex = inputs.length
+      for (let i = nextPos; i < order.length; i++) { handlers.onCancelled?.(order[i].index) }
+      nextPos = order.length
     },
   }
 }

@@ -70,6 +70,7 @@ export async function runAgent(token: string, root: HTMLElement) {
       job.files.map((f, i) => ({
         relPath: f.relPath,
         name: f.name,
+        size: f.size,
         file: async () => {
           const blob = await (await api(`file/${i}`)).blob()
           // WARNING: SVGs only render with type image/svg+xml.
@@ -80,7 +81,6 @@ export async function runAgent(token: string, root: HTMLElement) {
       pool,
       sink,
       {
-        onStart: (index) => void send({ type: 'start', index }),
         onDone: (index, out) => void send({ type: 'done', index, ...out }),
         onError: (index, message) => void send({ type: 'error', index, message }),
       },

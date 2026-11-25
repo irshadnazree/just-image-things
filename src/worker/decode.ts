@@ -1,17 +1,45 @@
 import type { InputFormat } from '../lib/formats'
 import { decodeQoi } from '../lib/codecs/qoi'
 
+let scratchCanvas: OffscreenCanvas | null = null
+let scratchCtx: OffscreenCanvasRenderingContext2D | null = null
+
+let heicModulePromise: Promise<{
+  HeifDecoder: new () => {
+    decode(data: Uint8Array): Array<{
+      get_width(): number
+      get_height(): number
+      is_primary?(): boolean
+      display(target: ImageData, callback: (result: ImageData | null) => void): void
+      free?(): void
+    }>
+  }
+}> | null = null
+
 function toImageData(data: Uint8ClampedArray | Uint8Array, width: number, height: number): ImageData {
   const clamped = new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength)
   return new ImageData(clamped as Uint8ClampedArray<ArrayBuffer>, width, height)
 }
 
 export function bitmapToImageData(bitmap: ImageBitmap): ImageData {
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) { throw new Error('2D canvas is unavailable') }
-  ctx.drawImage(bitmap, 0, 0)
-  return ctx.getImageData(0, 0, bitmap.width, bitmap.height)
+  const { width, height } = bitmap
+  if (!scratchCanvas || !scratchCtx) {
+    scratchCanvas = new OffscreenCanvas(width, height)
+    scratchCtx = scratchCanvas.getContext('2d', { willReadFrequently: true })
+    if (!scratchCtx) { throw new Error('2D canvas is unavailable') }
+  } else if (scratchCanvas.width !== width || scratchCanvas.height !== height) {
+    scratchCanvas.width = width
+    scratchCanvas.height = height
+  } else {
+    scratchCtx.clearRect(0, 0, width, height)
+  }
+  scratchCtx.drawImage(bitmap, 0, 0)
+  const imageData = scratchCtx.getImageData(0, 0, width, height)
+  if (width * height > 4_000_000) {
+    scratchCanvas.width = 1
+    scratchCanvas.height = 1
+  }
+  return imageData
 }
 
 async function decodeNative(blob: Blob): Promise<ImageData> {
@@ -27,9 +55,17 @@ async function decodeNative(blob: Blob): Promise<ImageData> {
   }
 }
 
+async function getHeicModule() {
+  if (!heicModulePromise) {
+    heicModulePromise = import('libheif-js/libheif-wasm/libheif-bundle.mjs').then(async ({ default: factory }) => {
+      return await factory()
+    })
+  }
+  return heicModulePromise
+}
+
 async function decodeHeic(buffer: ArrayBuffer): Promise<ImageData> {
-  const { default: factory } = await import('libheif-js/libheif-wasm/libheif-bundle.mjs')
-  const libheif = await factory()
+  const libheif = await getHeicModule()
   const decoder = new libheif.HeifDecoder()
   const images = decoder.decode(new Uint8Array(buffer))
   if (!images.length) { throw new Error('No image found in HEIC file') }
@@ -93,10 +129,15 @@ async function decodeWasm(format: InputFormat, buffer: ArrayBuffer): Promise<Ima
 
 const WASM_FIRST = new Set<InputFormat>(['heic', 'tiff', 'qoi', 'jxl'])
 
-export async function decodeImage(format: InputFormat, blob: Blob, buffer: ArrayBuffer): Promise<ImageData> {
+export async function decodeImage(
+  format: InputFormat,
+  blob: Blob,
+  bufferOrLoader: ArrayBuffer | (() => Promise<ArrayBuffer>),
+): Promise<ImageData> {
+  const loadBuffer = typeof bufferOrLoader === 'function' ? bufferOrLoader : () => Promise.resolve(bufferOrLoader)
   if (WASM_FIRST.has(format)) {
     try {
-      return await decodeWasm(format, buffer)
+      return await decodeWasm(format, await loadBuffer())
     } catch (wasmError) {
       try {
         return await decodeNative(blob)
@@ -109,7 +150,7 @@ export async function decodeImage(format: InputFormat, blob: Blob, buffer: Array
     return await decodeNative(blob)
   } catch (nativeError) {
     try {
-      return await decodeWasm(format, buffer)
+      return await decodeWasm(format, await loadBuffer())
     } catch {
       throw nativeError
     }

@@ -36,6 +36,7 @@ export function padToSquare(
   height: number,
   side: number,
 ): Uint8ClampedArray {
+  if (width === side && height === side) { return data }
   const out = new Uint8ClampedArray(side * side * 4)
   const ox = Math.floor((side - width) / 2)
   const oy = Math.floor((side - height) / 2)

@@ -55,10 +55,11 @@ export async function runGenerate(req: GenerateRequest): Promise<void> {
   const lossy = isLossyFormat(req.format) && !lossless
   const defaultQuality = isLossyFormat(req.format) ? DEFAULT_SETTINGS.quality[req.format] : 100
 
+  const mtThreads = Math.max(2, Math.min(8, navigator.hardwareConcurrency || 4))
   if (req.targetBytes === null) {
     const pixels = generatePixels(req.width, req.height, req.complexity, req.seed)
     const settings = buildSettings(req.format, lossless, lossy ? defaultQuality : undefined)
-    const encoded = await encodeImage(req.format, toImageData(pixels), settings)
+    const encoded = await encodeImage(req.format, toImageData(pixels), settings, { alpha: false, mtThreads })
     const preview = await createPreviewBitmap(req.format, encoded, pixels)
     const outBuffer = toTransferableBuffer(encoded)
     const outWidth = req.format === 'ico' ? Math.max(...settings.ico.sizes) : req.width
@@ -100,7 +101,7 @@ export async function runGenerate(req: GenerateRequest): Promise<void> {
     defaultQuality,
     encode: async (pixels, quality) => {
       const settings = buildSettings(req.format, lossless, lossy ? quality : undefined)
-      const encoded = await encodeImage(req.format, toImageData(pixels), settings)
+      const encoded = await encodeImage(req.format, toImageData(pixels), settings, { alpha: false, mtThreads })
       latestBytes = encoded
       latestPixels = pixels
       return encoded.byteLength

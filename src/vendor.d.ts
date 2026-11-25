@@ -34,3 +34,44 @@ declare module 'gifenc' {
     bytes(): Uint8Array
   }
 }
+
+declare module '@jsquash/oxipng/codec/pkg/squoosh_oxipng.js' {
+  export default function init(moduleOrPath?: unknown): Promise<unknown>
+  export function optimise(data: Uint8Array, level: number, interlace: boolean, optimiseAlpha: boolean): Uint8Array
+  export function optimise_raw(
+    data: Uint8ClampedArray,
+    width: number,
+    height: number,
+    level: number,
+    interlace: boolean,
+    optimiseAlpha: boolean,
+  ): Uint8Array
+}
+
+declare module '@jsquash/oxipng/codec/pkg-parallel/squoosh_oxipng.js' {
+  export default function init(moduleOrPath?: unknown): Promise<unknown>
+  export function initThreadPool(numThreads: number): Promise<void>
+  export function optimise(data: Uint8Array, level: number, interlace: boolean, optimiseAlpha: boolean): Uint8Array
+  export function optimise_raw(
+    data: Uint8ClampedArray,
+    width: number,
+    height: number,
+    level: number,
+    interlace: boolean,
+    optimiseAlpha: boolean,
+  ): Uint8Array
+}
+
+declare module '@jsquash/avif/codec/enc/avif_enc.js' {
+  const factory: (options?: Record<string, unknown>) => Promise<{
+    encode(data: Uint8Array, width: number, height: number, options: Record<string, unknown>): Uint8Array | null
+  }>
+  export default factory
+}
+
+declare module '@jsquash/jxl/codec/enc/jxl_enc.js' {
+  const factory: (options?: Record<string, unknown>) => Promise<{
+    encode(data: Uint8ClampedArray, width: number, height: number, options: Record<string, unknown>): Uint8Array | null
+  }>
+  export default factory
+}
