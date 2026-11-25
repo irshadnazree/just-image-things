@@ -47,9 +47,9 @@ All settings use one vocabulary across the CLI (`--long-edge 1600`), URL params 
 - Formats (`-f` / `--format`): `webp` (default), `avif`, `jpeg` (`jpg`), `png`, `jxl` (`jpegxl`), `gif`, `tiff` (`tif`), `bmp`, `ico`, `qoi`, `original` (`keep`; HEIC→JPEG, SVG→PNG).
 - Presets (`-p` / `--preset`): `web` (WebP, 2048px long edge), `compress` (keep format), `heic-jpeg` (JPEG q=90), `avif`, `favicon` (multi-size ICO 16–256px).
 - Compression: `-q` / `--quality` `0–100` (defaults: jpeg 82, webp 80, avif 60, jxl 75), `--lossless` (webp, avif, jxl), `--effort` (png 0–6, webp 0–6, avif 0–10, jxl 1–9), `--colors` (png 0 or 2–256, gif 2–256), `--background` `#hex` (JPEG alpha fill), `--no-progressive`, `--ico-sizes`, `--force-reencode` (by default, originals are kept if re-encoding is larger).
-- Resize (pick one; never upscales without `--upscale`): `--long-edge`, `--max-width`, `--max-height`, `--fit WxH`, `--scale %`, `--resize-method` (`lanczos3`, `mitchell`, `catrom`, `triangle`).
+- Resize (pick one; never upscales without `--upscale`, except `--scale`, which always applies its percentage): `--long-edge`, `--max-width`, `--max-height`, `--fit WxH`, `--scale %`, `--resize-method` (`lanczos3`, `mitchell`, `catrom`, `triangle`).
 - Rename: `--rename` template without extension using `{name}`, `{n}`, `{n:3}`, `{w}`, `{h}`, `{date}`, `{fmt}`; `--start-at <n>`.
-- Metadata & output: EXIF stripped by default (orientation applied automatically); `--keep-exif` (JPEG→JPEG only), `--keep-gps` (requires `--keep-exif`), `--flat`, `--conflict` (`rename` | `overwrite` | `skip`), `--workers <1-64>`.
+- Metadata & output: EXIF stripped from re-encoded output by default (orientation applied automatically; a non-JPEG original kept because re-encoding was larger is copied byte-for-byte with its metadata, use `--force-reencode` to always strip); `--keep-exif` (JPEG→JPEG only), `--keep-gps` (requires `--keep-exif`), `--flat`, `--conflict` (`rename` | `overwrite` | `skip`), `--workers <1-64>`.
 
 ## Supported formats
 

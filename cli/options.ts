@@ -42,7 +42,7 @@ FORMAT AND QUALITY
       --force-reencode    Write the re-encoded file even when it is bigger than
                           the original (by default the original is kept).
 
-RESIZE (pick one; never upscales unless --upscale)
+RESIZE (pick one; never upscales unless --upscale, except --scale)
       --long-edge <px>    Longest side at most <px>.
       --max-width <px>    Width at most <px>.
       --max-height <px>   Height at most <px>.

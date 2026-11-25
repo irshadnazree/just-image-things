@@ -5,7 +5,9 @@ let scratchCanvas: OffscreenCanvas | null = null
 let scratchCtx: OffscreenCanvasRenderingContext2D | null = null
 
 let heicModulePromise: Promise<{
+  heif_context_free?(context: unknown): void
   HeifDecoder: new () => {
+    decoder: unknown
     decode(data: Uint8Array): Array<{
       get_width(): number
       get_height(): number
@@ -60,6 +62,9 @@ async function getHeicModule() {
     heicModulePromise = import('libheif-js/libheif-wasm/libheif-bundle.mjs').then(async ({ default: factory }) => {
       return await factory()
     })
+    heicModulePromise.catch(() => {
+      heicModulePromise = null
+    })
   }
   return heicModulePromise
 }
@@ -67,18 +72,24 @@ async function getHeicModule() {
 async function decodeHeic(buffer: ArrayBuffer): Promise<ImageData> {
   const libheif = await getHeicModule()
   const decoder = new libheif.HeifDecoder()
-  const images = decoder.decode(new Uint8Array(buffer))
-  if (!images.length) { throw new Error('No image found in HEIC file') }
-  const image = images.find((img) => img.is_primary?.()) ?? images[0]
-  const width = image.get_width()
-  const height = image.get_height()
+  let images: ReturnType<typeof decoder.decode> = []
   try {
+    images = decoder.decode(new Uint8Array(buffer))
+    if (!images.length) { throw new Error('No image found in HEIC file') }
+    const image = images.find((img) => img.is_primary?.()) ?? images[0]
+    const width = image.get_width()
+    const height = image.get_height()
     return await new Promise<ImageData>((resolve, reject) => {
       const target = new ImageData(width, height)
       image.display(target, (result) => (result ? resolve(result) : reject(new Error('HEIC decode failed'))))
     })
   } finally {
     for (const img of images) { img.free?.() }
+    // WARNING: libheif-js frees a heif_context only on that decoder's next decode, so free it here or each file leaks it.
+    if (decoder.decoder && libheif.heif_context_free) {
+      libheif.heif_context_free(decoder.decoder)
+      decoder.decoder = null
+    }
   }
 }
 

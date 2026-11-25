@@ -27,7 +27,7 @@ A web rework of [`image-script.py`](https://github.com/irshadnazree/media-relate
 - Live before/after preview with output size, using the current settings.
 - Resize by longest edge, max width/height, fit-in-box or percent. Never upscales unless you ask.
 - Rename templates: `{name}`, `{n}`, `{n:3}`, `{w}`, `{h}`, `{date}`, `{fmt}`.
-- Metadata stripped by default. Optionally keep EXIF for JPEG to JPEG, with GPS removed.
+- Metadata stripped from re-encoded files by default. Optionally keep EXIF for JPEG to JPEG, with GPS removed. A non-JPEG original kept because re-encoding would make it bigger is copied byte-for-byte, metadata included (use `--force-reencode` to always strip).
 - EXIF orientation is applied, so phone photos come out upright.
 - Keeps the original when re-encoding would make it bigger.
 - Output straight to a folder (Chromium), as a streamed ZIP, or as individual downloads.

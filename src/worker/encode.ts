@@ -44,6 +44,22 @@ let jxlStPromise: Promise<{
   encode(data: Uint8ClampedArray, width: number, height: number, options: Record<string, unknown>): Uint8Array | null
 }> | null = null
 
+/**
+ * Largest image (in pixels) handed to multi-threaded oxipng. The parallel build caps its
+ * shared `WebAssembly.Memory` at 16384 pages (1 GiB) and every rayon thread holds its own
+ * filtered copies of the image, so big frames exhaust that heap and a failed allocation on a
+ * worker thread deadlocks the caller instead of throwing. 4032×4032 (16.3 MP) was measured to
+ * finish while 6016×6016 (36 MP) hung, so anything above 4096×4096 uses the single-threaded build.
+ */
+export const OXIPNG_MT_MAX_PIXELS = 4096 * 4096
+
+let oxipngMtDisabled = false
+
+function resetOnReject<T>(promise: Promise<T>, reset: () => void): Promise<T> {
+  promise.catch(reset)
+  return promise
+}
+
 function parseHex(hex: string): [number, number, number] {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex)
   const n = m ? Number.parseInt(m[1], 16) : 0xff_ff_ff
@@ -81,35 +97,56 @@ function flatten(img: ImageData, background: string, knownAlpha?: boolean): Imag
 
 async function getOxipngSt() {
   if (!oxipngStPromise) {
-    oxipngStPromise = import('@jsquash/oxipng/codec/pkg/squoosh_oxipng.js').then(async (mod) => {
-      await mod.default()
-      return mod.optimise_raw
-    })
+    oxipngStPromise = resetOnReject(
+      import('@jsquash/oxipng/codec/pkg/squoosh_oxipng.js').then(async (mod) => {
+        await mod.default()
+        return mod.optimise_raw
+      }),
+      () => {
+        oxipngStPromise = null
+      },
+    )
   }
   return oxipngStPromise
 }
 
 async function getOxipngMt(threads: number) {
   if (!oxipngMtPromise) {
-    oxipngMtPromise = import('@jsquash/oxipng/codec/pkg-parallel/squoosh_oxipng.js').then(async (mod) => {
-      await mod.default()
-      await mod.initThreadPool(threads)
-      return mod.optimise_raw
-    })
+    oxipngMtPromise = resetOnReject(
+      import('@jsquash/oxipng/codec/pkg-parallel/squoosh_oxipng.js').then(async (mod) => {
+        await mod.default()
+        await mod.initThreadPool(threads)
+        return mod.optimise_raw
+      }),
+      () => {
+        oxipngMtPromise = null
+        oxipngMtDisabled = true
+      },
+    )
   }
   return oxipngMtPromise
 }
 
 async function getAvifSt() {
   if (!avifStPromise) {
-    avifStPromise = import('@jsquash/avif/codec/enc/avif_enc.js').then(({ default: factory }) => factory())
+    avifStPromise = resetOnReject(
+      import('@jsquash/avif/codec/enc/avif_enc.js').then(({ default: factory }) => factory()),
+      () => {
+        avifStPromise = null
+      },
+    )
   }
   return avifStPromise
 }
 
 async function getJxlSt() {
   if (!jxlStPromise) {
-    jxlStPromise = import('@jsquash/jxl/codec/enc/jxl_enc.js').then(({ default: factory }) => factory())
+    jxlStPromise = resetOnReject(
+      import('@jsquash/jxl/codec/enc/jxl_enc.js').then(({ default: factory }) => factory()),
+      () => {
+        jxlStPromise = null
+      },
+    )
   }
   return jxlStPromise
 }
@@ -136,9 +173,13 @@ async function encodePng(img: ImageData, settings: Settings, opts: EncodeOptions
     source = new ImageData(out, img.width, img.height)
   }
   if (settings.effort.png > 0) {
-    if (canUseMt(opts.mtThreads)) {
-      const optimiseRaw = await getOxipngMt(opts.mtThreads ?? 2)
-      return new Uint8Array(optimiseRaw(source.data, source.width, source.height, settings.effort.png, false, alpha))
+    if (!oxipngMtDisabled && canUseMt(opts.mtThreads) && source.width * source.height <= OXIPNG_MT_MAX_PIXELS) {
+      try {
+        const optimiseRaw = await getOxipngMt(opts.mtThreads ?? 2)
+        return new Uint8Array(optimiseRaw(source.data, source.width, source.height, settings.effort.png, false, alpha))
+      } catch {
+        oxipngMtDisabled = true
+      }
     }
     const optimiseRaw = await getOxipngSt()
     return new Uint8Array(optimiseRaw(source.data, source.width, source.height, settings.effort.png, false, alpha))

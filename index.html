@@ -74,7 +74,7 @@
               "Write 10 formats: MozJPEG, OxiPNG, WebP, AVIF, JPEG XL, GIF, TIFF, BMP, multi-size ICO, QOI",
               "Resize by longest edge, max width, max height, fit-in-box, or percentage without upscaling by default",
               "Batch rename with templates ({name}, {n}, {n:3}, {w}, {h}, {date}, {fmt})",
-              "Strip EXIF and GPS metadata automatically while applying EXIF orientation",
+              "Strip EXIF and GPS metadata from re-encoded images automatically while applying EXIF orientation",
               "URL link settings, browser scripting API (window.justImageThings), WebMCP tools, and headless CLI",
               "Deterministic synthetic test image generator with target file size search at /generate"
             ],
@@ -154,7 +154,7 @@
           <li>Drop individual images, whole folders (preserving subfolders), or paste from clipboard.</li>
           <li>Resize by longest edge, max width, max height, fit-in-box, or percentage (never upscales unless requested).</li>
           <li>Batch rename templates with <code>{name}</code>, <code>{n}</code>, <code>{n:3}</code>, <code>{w}</code>, <code>{h}</code>, <code>{date}</code>, and <code>{fmt}</code>.</li>
-          <li>Strips EXIF and GPS metadata by default while applying EXIF orientation so phone photos stay upright.</li>
+          <li>Strips EXIF and GPS metadata from re-encoded images by default while applying EXIF orientation so phone photos stay upright. Non-JPEG originals kept because re-encoding would be larger are left byte-identical.</li>
           <li>Keeps the original file when re-encoding would make it larger.</li>
           <li>Built-in presets: Web (WebP 2048px), Compress (keep format), iPhone HEIC to JPEG, Smallest AVIF, and Multi-size Favicon (ICO).</li>
         </ul>

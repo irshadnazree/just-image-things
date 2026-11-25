@@ -19,6 +19,9 @@ const ftyp = (major: string, ...compat: Array<string>) => {
   return bytes(0, 0, 0, size, 'ftyp', major, 0, 0, 0, 0, ...compat)
 }
 
+const qoiHeader = (w: number) => [...bytes('qoif'), 0, 0, 0, w, 0, 0, 0, 1, 4, 0]
+const qoiEnd = [0, 0, 0, 0, 0, 0, 0, 1]
+
 const rgba = (w: number, h: number, fn: (x: number, y: number) => [number, number, number, number]) => {
   const data = new Uint8ClampedArray(w * h * 4)
   for (let y = 0; y < h; y++) {
@@ -239,6 +242,8 @@ describe('resize and pixel stages', () => {
     expect(targetSize(800, 600, { ...r, mode: 'longEdge', longEdge: 2048 })).toBeNull()
     expect(targetSize(800, 600, { ...r, mode: 'longEdge', longEdge: 1600, allowUpscale: true })).toEqual({ width: 1600, height: 1200 })
     expect(targetSize(1000, 500, { ...r, mode: 'percent', percent: 50 })).toEqual({ width: 500, height: 250 })
+    expect(targetSize(1000, 500, { ...r, mode: 'percent', percent: 200 })).toEqual({ width: 2000, height: 1000 })
+    expect(targetSize(1000, 500, { ...r, mode: 'percent', percent: 100 })).toBeNull()
     expect(targetSize(1000, 500, { ...r, mode: 'none' })).toBeNull()
   })
 
@@ -260,6 +265,16 @@ describe('resize and pixel stages', () => {
     expect(resizedAlpha[3]).toBe(0)
     expect(resizedAlpha[(5 * 10 + 9) * 4 + 3]).toBe(255)
     expect(resizedAlpha[(5 * 10 + 9) * 4 + 1]).toBeGreaterThan(190)
+
+    const greyEdge = rgba(8, 1, (x) => [128, 128, 128, x < 4 ? 0 : 255])
+    for (const method of ['lanczos3', 'mitchell', 'catrom', 'triangle'] as const) {
+      const out = resizeRgba(greyEdge, 32, 1, method, true)
+      let brightest = 0
+      for (let i = 0; i < out.length; i += 4) {
+        if (out[i + 3] > 0) { brightest = Math.max(brightest, out[i], out[i + 1], out[i + 2]) }
+      }
+      expect(brightest, method).toBeLessThanOrEqual(128)
+    }
   })
 
   it('detects alpha and quantises palettes for GIF 1-bit alpha and PNG full alpha', () => {
@@ -294,15 +309,23 @@ describe('custom binary codecs', () => {
 
     const runImg = rgba(300, 2, () => [10, 20, 30, 255])
     expect(Array.from(decodeQoi(encodeQoi(runImg, 3)).data)).toEqual(Array.from(runImg.data))
+
+    const runThenIndex = decodeQoi(new Uint8Array([...qoiHeader(3), 0xc0, 0xfe, 255, 0, 0, 53, ...qoiEnd]))
+    expect(Array.from(runThenIndex.data)).toEqual([0, 0, 0, 255, 255, 0, 0, 255, 0, 0, 0, 255])
+    expect(() => decodeQoi(new Uint8Array([...qoiHeader(1), 0xff, 1, 2, ...qoiEnd]))).toThrow(/Truncated/)
   })
 
   it('encodes 24-bit opaque and 32-bit transparent BMP, and packs multi-size ICO', () => {
     const bmp24 = encodeBmp(rgba(3, 2, (x, y) => [x * 10, y * 10, 99, 255]))
     expect(sniffFormat(bmp24)).toBe('bmp')
     expect(new DataView(bmp24.buffer).getUint16(28, true)).toBe(24)
+    expect(bmp24.length).toBe(54 + 12 * 2)
+    expect(Array.from(bmp24.slice(54, 57))).toEqual([99, 10, 0])
+    expect(Array.from(bmp24.slice(66, 69))).toEqual([99, 0, 0])
 
     const bmp32 = encodeBmp(rgba(2, 2, () => [1, 2, 3, 4]))
     expect(new DataView(bmp32.buffer).getUint16(28, true)).toBe(32)
+    expect(new DataView(bmp32.buffer).getUint32(66, true)).toBe(0xff_00_00_00)
 
     const ico = encodeIco([
       { size: 256, png: new Uint8Array([4, 5, 6, 7]) },

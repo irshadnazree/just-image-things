@@ -44,18 +44,35 @@ export interface BatchRun {
   cancel: () => void
 }
 
-function chooseThreading(settings: Settings, count: number, poolLimit: number): { lanes: number; mtThreads: number } {
-  const canMt = Boolean(globalThis.crossOriginIsolated) && typeof SharedArrayBuffer !== 'undefined'
-  const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4
+export interface ThreadingEnv {
+  /** Whether SharedArrayBuffer-backed multi-threaded WASM can run (cross-origin isolated). */
+  canMt: boolean
+  cores: number
+}
+
+function detectThreadingEnv(): ThreadingEnv {
+  return {
+    canMt: Boolean(globalThis.crossOriginIsolated) && typeof SharedArrayBuffer !== 'undefined',
+    cores: typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4,
+  }
+}
+
+/**
+ * Pick how many files run at once (`lanes`) and the per-file thread budget (`mtThreads`).
+ * The MT AVIF and JPEG XL encoders size their pthread pool from `navigator.hardwareConcurrency`
+ * and ignore `mtThreads` (it only switches them on), so at most one of them runs at a time.
+ * MT oxipng honours `mtThreads`, so the cores are split between its lanes instead.
+ */
+export function chooseThreading(
+  settings: Settings,
+  count: number,
+  poolLimit: number,
+  env: ThreadingEnv = detectThreadingEnv(),
+): { lanes: number; mtThreads: number } {
+  const { canMt, cores } = env
   if (canMt && cores >= 2 && count > 0) {
-    if (settings.format === 'avif' && count <= 4) {
-      const workers = Math.min(poolLimit, count === 1 ? 1 : 2)
-      return { lanes: Math.min(count, workers), mtThreads: cores }
-    }
-    if (settings.format === 'jxl') {
-      const maxWorkers = Math.max(4, Math.floor(cores / 2))
-      const workers = Math.min(poolLimit, count === 1 ? 1 : Math.min(count, maxWorkers))
-      return { lanes: Math.min(count, workers), mtThreads: cores }
+    if ((settings.format === 'avif' || settings.format === 'jxl') && count <= 2) {
+      return { lanes: 1, mtThreads: cores }
     }
     if (settings.format === 'png' && settings.effort.png > 0 && count <= 2) {
       const workers = Math.min(poolLimit, count)

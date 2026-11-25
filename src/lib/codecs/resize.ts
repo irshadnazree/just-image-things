@@ -280,12 +280,11 @@ export function resizeRgba(
         out[outOff + 2] = 0
         out[outOff + 3] = 0
       } else {
-        const clampedA = a >= 1 ? 1 : a
-        const invA = 1 / clampedA
+        const invA = 1 / a
         out[outOff] = linearToSrgbByte(rowAcc[i] * invA)
         out[outOff + 1] = linearToSrgbByte(rowAcc[i + 1] * invA)
         out[outOff + 2] = linearToSrgbByte(rowAcc[i + 2] * invA)
-        out[outOff + 3] = Math.min(255, Math.round(clampedA * 255))
+        out[outOff + 3] = a >= 1 ? 255 : Math.round(a * 255)
       }
       outOff += 4
     }

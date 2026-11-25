@@ -14,7 +14,7 @@ bun run agent --help             # every option
 bun run agent <folder-or-files...> [options] --json
 ```
 
-- Originals are never modified (even `--conflict overwrite` refuses to overwrite an input file, and symlinks are never followed).
+- Originals are never modified (even `--conflict overwrite` refuses to overwrite an input file, symlinks inside input folders are skipped, and outputs are never written through symlinks; symlinks passed explicitly as arguments are read).
 - Output goes to `<folder>_processed` next to a single input folder (or `./images_processed` for loose files); override with `-o <dir>`.
 - Subfolder structure is preserved (`--flat` to flatten). Existing outputs get `-2`, `-3`… unless `--conflict overwrite|skip`.
 - Always pass `--json` when invoking programmatically: a structured JSON report is printed to `stdout`, while progress goes to `stderr`.
@@ -58,7 +58,7 @@ The same flag names work in the CLI (`--long-edge 1600`), URL params (`?long-edg
 | "reduce PNG/GIF colours" | `--colors <n>` (png: 0 or 2–256; gif: 2–256) |
 | "transparent background for JPEG / baseline JPEG" | `--background #ffffff`, `--no-progressive` |
 | "force re-encode even if bigger" | `--force-reencode` (by default, original bytes are kept if larger) |
-| "max 1920 wide" / "max 1080 tall" / "longest side 2048" / "fit 1920x1080" / "half size" | `--max-width 1920` / `--max-height 1080` / `--long-edge 2048` / `--fit 1920x1080` / `--scale 50` (pick one; never upscales without `--upscale`; filter `--resize-method lanczos3\|mitchell\|catrom\|triangle`) |
+| "max 1920 wide" / "max 1080 tall" / "longest side 2048" / "fit 1920x1080" / "half size" | `--max-width 1920` / `--max-height 1080` / `--long-edge 2048` / `--fit 1920x1080` / `--scale 50` (pick one; never upscales without `--upscale`, except `--scale`, which always applies its percentage; filter `--resize-method lanczos3\|mitchell\|catrom\|triangle`) |
 | "rename to 001, 002…" | `--rename "{n:3}"` (tokens: `{name} {n} {n:3} {w} {h} {date} {fmt}`; `--start-at 1`) |
 | "keep EXIF" / "keep GPS too" | `--keep-exif` (JPEG→JPEG only; GPS stripped unless `--keep-gps` is also passed) |
 | "flatten subfolders / handle existing files" | `--flat`, `--conflict rename\|overwrite\|skip` |

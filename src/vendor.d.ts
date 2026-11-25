@@ -8,7 +8,8 @@ declare module 'libheif-js/libheif-wasm/libheif-bundle.mjs' {
     free(): void
   }
   interface LibHeif {
-    HeifDecoder: new () => { decode(data: Uint8Array): Array<HeifImage> }
+    heif_context_free(context: unknown): void
+    HeifDecoder: new () => { decoder: unknown; decode(data: Uint8Array): Array<HeifImage> }
   }
   const factory: (options?: Record<string, unknown>) => LibHeif | Promise<LibHeif>
   export default factory
