@@ -66,6 +66,14 @@ The same flag names work in the CLI (`--long-edge 1600`), URL params (`?long-edg
 
 ## Working on the code
 
+### UI components (`@irshadnazree/just-things-ui`)
+
+- **Default to `@irshadnazree/just-things-ui` for all UI components.** Always check its exports (`node_modules/@irshadnazree/just-things-ui/dist/index.d.ts` or `README.md`) and use package components (`AppHeader`, `AppHeaderBadge`, `Button`, `Input`, `Textarea`, `Select`, `NumberField`, `Checkbox`, `Switch`, `Slider`, `SegmentedControl`, `ChipGroup`, `Field`, `Surface`, `Glass`, `Tag`, `Table`, `Dialog`, `ConfirmDialog`, `Sheet`, `EmptyState`, `Progress`, `Spinner`, `Skeleton`, `ToastProvider`/`useToast`, `ThemeToggle`) instead of creating new local UI primitives or adding custom controls to `src/components/controls.tsx`.
+- **If no usable component exists, stop and tell the user.** Do not build a new custom UI component or local primitive in this repo when `@irshadnazree/just-things-ui` lacks a needed control, surface, overlay, or capability — let the user know what is missing so it can be added to `just-things-ui` first.
+- **Styling boundaries:** Keep `src/index.css` to page layout/arrangement and `--jt-*` tokens; avoid adding new custom control styles or restyling `just-things-ui` internals.
+
+### Workflow & architecture
+
 - Run `bun run test`, `bun run typecheck`, and `bun run lint` before committing (and `bun run build` when changing Vite/HTML/Cloudflare config).
 - Linting uses `oxlint` with `@cloudflare/oxlint-config` and `@interfere/landmines` (`landmines/no-comments: error` disallows casual inline `//` comments in TS/TSX — use JSDoc `/** ... */` or `// WARNING: ...` only where genuinely warranted).
 - Image processing lives in `src/worker/` (`decode.ts`, `resize.ts`, `encode.ts`, `generate.ts`, `processor.worker.ts`) and `src/app/batch.ts` (naming, output paths). Both the UI (`src/app/store.ts`) and headless agent mode (`src/agent/runner.ts`) go through `runBatch`, so keep batch behaviour changes there.
