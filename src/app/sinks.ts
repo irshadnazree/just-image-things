@@ -14,15 +14,28 @@ export const supportsFolderOutput = typeof window !== 'undefined' && 'showDirect
 const supportsSavePicker = typeof window !== 'undefined' && 'showSaveFilePicker' in window
 
 type PickerWindow = Window & {
-  showDirectoryPicker(opts?: { mode?: 'read' | 'readwrite'; id?: string }): Promise<FileSystemDirectoryHandle>
+  showDirectoryPicker(opts?: {
+    mode?: 'read' | 'readwrite'
+    id?: string
+    startIn?: FileSystemHandle
+  }): Promise<FileSystemDirectoryHandle>
   showSaveFilePicker(opts?: {
     suggestedName?: string
+    startIn?: FileSystemHandle
     types?: Array<{ description: string; accept: Record<string, Array<string>> }>
   }): Promise<FileSystemFileHandle>
 }
 
-export function pickOutputFolder(): Promise<FileSystemDirectoryHandle> {
-  return (window as unknown as PickerWindow).showDirectoryPicker({ mode: 'readwrite', id: 'output' })
+function startAt(startIn: FileSystemHandle | null | undefined) {
+  return startIn ? { startIn } : { id: 'output' }
+}
+
+/**
+ * A `startIn` file handle opens the dialog in that file's folder; a folder handle opens that folder.
+ * Without one it reopens the last folder picked for output.
+ */
+export function pickOutputFolder(startIn?: FileSystemHandle | null): Promise<FileSystemDirectoryHandle> {
+  return (window as unknown as PickerWindow).showDirectoryPicker({ mode: 'readwrite', ...startAt(startIn) })
 }
 
 export async function ensureWritable(handle: FileSystemDirectoryHandle): Promise<boolean> {
@@ -162,13 +175,15 @@ export class ZipSink implements Sink {
    * Must be called from a click handler, before any other await, so the save dialog is allowed.
    * Without `usePicker` the zip is always a plain download (scripted runs have no click to use).
    */
-  static async create(fileName: string, usePicker = true): Promise<ZipSink> {
+  static async create(fileName: string, usePicker = true, startIn?: FileSystemHandle | null): Promise<ZipSink> {
     let target: FileSystemFileHandle | null = null
     if (usePicker && supportsSavePicker) {
-      target = await (window as unknown as PickerWindow).showSaveFilePicker({
+      const opts: Parameters<PickerWindow['showSaveFilePicker']>[0] = {
         suggestedName: fileName,
         types: [{ description: 'ZIP archive', accept: { 'application/zip': ['.zip'] } }],
-      })
+      }
+      if (startIn) { opts.startIn = startIn }
+      target = await (window as unknown as PickerWindow).showSaveFilePicker(opts)
     }
     return new ZipSink(fileName, target)
   }

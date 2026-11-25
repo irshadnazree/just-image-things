@@ -72,6 +72,8 @@ interface State {
   settings: Settings
   presets: Array<Preset>
   outputFolder: FileSystemDirectoryHandle | null
+  /** A handle to where the latest images came from, so save dialogs can open beside them (Chromium only). */
+  sourceHandle: FileSystemHandle | null
   running: boolean
   stats: RunStats | null
   /** Shown once after a run ends, e.g. "Saved to photos_processed.zip". */
@@ -84,7 +86,7 @@ interface State {
    */
   linkSettings: { saved: Settings } | null
 
-  addFiles: (files: Array<IntakeFile>) => void
+  addFiles: (files: Array<IntakeFile>, source?: FileSystemHandle | null) => void
   removeItem: (id: number) => void
   clear: () => void
   select: (id: number | null) => void
@@ -144,6 +146,7 @@ export const useStore = create<State>()(
       settings: { ...DEFAULT_SETTINGS, output: { ...DEFAULT_SETTINGS.output, destination: supportsFolderOutput ? 'folder' : 'zip' } },
       presets: [],
       outputFolder: null,
+      sourceHandle: null,
       running: false,
       stats: null,
       notice: null,
@@ -159,7 +162,7 @@ export const useStore = create<State>()(
         set({ settingsOpen: open })
       },
 
-      addFiles(files) {
+      addFiles(files, source) {
         const { items } = get()
         const seen = new Set(items.map((i) => `${i.relPath}|${i.file.size}|${i.file.lastModified}`))
         const added: Array<Item> = []
@@ -172,6 +175,7 @@ export const useStore = create<State>()(
         if (!added.length) { return }
         const merged = [...items, ...added].sort((a, b) => collator.compare(a.relPath, b.relPath))
         set({ items: merged, selectedId: get().selectedId ?? added[0].id, notice: null })
+        if (source) { set({ sourceHandle: source }) }
       },
 
       removeItem(id) {
@@ -183,7 +187,7 @@ export const useStore = create<State>()(
 
       clear() {
         if (get().running) { return }
-        set({ items: [], selectedId: null, stats: null, notice: null })
+        set({ items: [], selectedId: null, stats: null, notice: null, sourceHandle: null })
       },
 
       select(id) {
@@ -212,7 +216,7 @@ export const useStore = create<State>()(
       },
 
       async chooseFolder() {
-        const folder = await pickOutputFolder().catch(() => null)
+        const folder = await pickOutputFolder(get().sourceHandle).catch(() => null)
         if (folder) { set({ outputFolder: folder }) }
       },
 
@@ -232,7 +236,7 @@ export const useStore = create<State>()(
           } else if (settings.output.destination === 'folder' && supportsFolderOutput) {
             let folder = state.outputFolder
             if (!folder) {
-              folder = await pickOutputFolder()
+              folder = await pickOutputFolder(state.sourceHandle)
               set({ outputFolder: folder })
             } else if (!(await ensureWritable(folder))) {
               return null
@@ -241,7 +245,7 @@ export const useStore = create<State>()(
           } else if (settings.output.destination === 'files' || items.length === 1) {
             sink = new FilesSink()
           } else {
-            sink = await ZipSink.create(zipName(items))
+            sink = await ZipSink.create(zipName(items), true, state.sourceHandle)
           }
         } catch {
           return null

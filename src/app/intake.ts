@@ -1,4 +1,4 @@
-import { isSupportedName } from '../lib/formats'
+import { EXTENSION_MAP, isSupportedName } from '../lib/formats'
 
 export interface IntakeFile {
   file: File
@@ -47,6 +47,64 @@ export async function filesFromDataTransfer(dt: DataTransfer): Promise<Array<Int
     for (const file of Array.from(dt.files)) { out.push({ file, relPath: file.name }) }
   }
   return out.filter((f) => isSupportedName(f.file.name))
+}
+
+/**
+ * Starts reading a handle for the first dropped item (Chromium), so save dialogs can open beside it.
+ * Must be called synchronously in the drop handler, before `filesFromDataTransfer` or any await.
+ */
+export function sourceHandleFromDataTransfer(dt: DataTransfer): Promise<FileSystemHandle | null> {
+  const item: (DataTransferItem & { getAsFileSystemHandle?: () => Promise<FileSystemHandle | null> }) | undefined =
+    Array.from(dt.items).find((i) => i.kind === 'file')
+  const pending = item?.getAsFileSystemHandle?.()
+  return pending ? pending.catch(() => null) : Promise.resolve(null)
+}
+
+type OpenPickerWindow = Window & {
+  showOpenFilePicker(opts: {
+    multiple?: boolean
+    id?: string
+    excludeAcceptAllOption?: boolean
+    types?: Array<{ description: string; accept: Record<string, Array<string>> }>
+  }): Promise<Array<FileSystemFileHandle>>
+  showDirectoryPicker(opts?: { mode?: 'read' | 'readwrite'; id?: string }): Promise<FileSystemDirectoryHandle>
+}
+
+/** Chromium's pickers hand back handles, which is what lets the save dialog open next to the source images. */
+export const supportsOpenPickers = typeof window !== 'undefined' && 'showOpenFilePicker' in window && 'showDirectoryPicker' in window
+
+export interface PickedFiles {
+  files: Array<IntakeFile>
+  source: FileSystemHandle | null
+}
+
+export async function pickImageFiles(): Promise<PickedFiles> {
+  const handles = await (window as unknown as OpenPickerWindow).showOpenFilePicker({
+    multiple: true,
+    id: 'input',
+    types: [{ description: 'Images', accept: { 'image/*': Object.keys(EXTENSION_MAP).map((e) => `.${e}`) } }],
+  })
+  const files = await Promise.all(handles.map((h) => h.getFile()))
+  return { files: filesFromList(files), source: handles[0] ?? null }
+}
+
+async function walkHandle(dir: FileSystemDirectoryHandle, prefix: string, out: Array<IntakeFile>) {
+  const entries = (dir as FileSystemDirectoryHandle & { values(): AsyncIterable<FileSystemHandle> }).values()
+  for await (const entry of entries) {
+    const relPath = `${prefix}/${entry.name}`
+    if (entry.kind === 'file') {
+      if (isSupportedName(entry.name)) { out.push({ file: await entry.getFile(), relPath }) }
+    } else {
+      await walkHandle(entry, relPath, out)
+    }
+  }
+}
+
+export async function pickImageFolder(): Promise<PickedFiles> {
+  const dir = await (window as unknown as OpenPickerWindow).showDirectoryPicker({ mode: 'read', id: 'input' })
+  const files: Array<IntakeFile> = []
+  await walkHandle(dir, dir.name, files)
+  return { files, source: dir }
 }
 
 export function filesFromList(list: FileList | Array<File>): Array<IntakeFile> {
